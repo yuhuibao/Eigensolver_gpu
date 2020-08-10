@@ -23,7 +23,7 @@ module dsygst_gpu_kernels
       integer(c_int),intent(IN) :: sharedMem
       type(c_ptr),value,intent(IN) :: stream
       integer,value :: kb
-      TODO declaration not found :: a
+      type(c_ptr) :: a
       integer,value :: k
     end subroutine
 
@@ -35,11 +35,10 @@ module dsygst_gpu_kernels
       use iso_c_binding
       use hip
       implicit none
-      integer(c_int),intent(IN) :: sharedMem
+      integer(c_int),value :: sharedMem, k ,kb
       type(c_ptr),value,intent(IN) :: stream
-      integer,value :: kb
-      TODO declaration not found :: a
-      integer,value :: k
+      type(c_ptr) :: a
+
     end subroutine
 
   end interface

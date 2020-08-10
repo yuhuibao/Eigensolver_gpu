@@ -383,6 +383,7 @@ __global__ void dsytd2_gpu(int lda,
                   // ! Generate elementary reflector
                   // ! Sum the vectors above the diagonal, only one warp active
                   // ! Reduce in a warp
+  for(i=n-1;i>=1;i--){
       if ((tl <= 32)) {
     if ((tl < i)) {
       w = (a_s[_idx_a_s(tl, (i + 1))] * a_s[_idx_a_s(tl, (i + 1))]);
@@ -443,14 +444,17 @@ __global__ void dsytd2_gpu(int lda,
     e[_idx(i)] = alpha;
   }
   // ! TODO could not parse:           if (taui .ne. (0.d0, 0.d0)) then
+  if(taui !=0.e0){
   a_s[_idx_a_s(i, (i + 1))] = 1.e0;
-  __syncthreads() if ((tl <= i)) {
+  __syncthreads() 
+  if ((tl <= i)) {
     tau[_idx(tl)] = 0.e0;
     for (int j = 1; j <= i; j += 1) {
       tau[_idx(tl)] = (tau[_idx(tl)] + taui * a_s[_idx_a_s(tl, j)] * a_s[_idx_a_s(j, (i + 1))]);
     }
   }
-  __syncthreads() if ((tl <= 32)) {
+  __syncthreads() 
+  if ((tl <= 32)) {
     if ((tl <= i)) {
       x = (-.5e0 * taui * tau[_idx(tl)] * a_s[_idx_a_s(tl, (i + 1))]);
 
@@ -468,20 +472,25 @@ __global__ void dsytd2_gpu(int lda,
     z = __shfl_xor(x, 16);
     x = (x + z);
   }
-  __syncthreads() if ((tl <= i)) { tau[_idx(tl)] = (tau[_idx(tl)] + x * a_s[_idx_a_s(tl, (i + 1))]); }
+  __syncthreads() 
+  if ((tl <= i)) { tau[_idx(tl)] = (tau[_idx(tl)] + x * a_s[_idx_a_s(tl, (i + 1))]); }
   if ((tl == 1)) {
     alpha = x;
-    __syncthreads() if ((tx <= i & ty <= i)) {
+  }
+    __syncthreads() 
+    if ((tx <= i & ty <= i)) {
       a_s[_idx_a_s(tx, ty)] =
           (a_s[_idx_a_s(tx, ty)] - a_s[_idx_a_s(tx, (i + 1))] * tau[_idx(ty)] - a_s[_idx_a_s(ty, (i + 1))] * tau[_idx(tx)]);
     }
     __syncthreads() // ! TODO could not parse:           endif
+  }
         if ((tl == 1)) {
       a_s[_idx_a_s(i, (i + 1))] = e[_idx(i)];
       d[_idx((i + 1))] = a_s[_idx_a_s((i + 1), (i + 1))];
       tau[_idx(i)] = taui;
     }
     __syncthreads() // ! TODO could not parse:        end do
+  }
         if ((tl == 1)) {
       d[_idx(1)] = a_s[_idx_a_s(1, 1)];
     }
@@ -490,7 +499,7 @@ __global__ void dsytd2_gpu(int lda,
       a[_idx_a(tx, ty)] = a_s[_idx_a_s(tx, ty)];
     }
   }
-}
+
 
 extern "C" void launch_dsytd2_gpu(dim3 *grid,
                                   dim3 *block,

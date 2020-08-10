@@ -188,21 +188,21 @@ function test_launch_dsytd2_gpu()
   ! - Add missing arguments
   ! - Determine size of arrays (typically indicated by 'type(c_ptr)' type)
   ! - Add target where we need a pointer
-  type(dim3,,intent(IN, :: grid
-  type(dim3,,intent(IN, :: block
-  integer(c_int,,intent(IN, :: sharedMem
-  type(c_ptr,,value,intent(IN, :: stream
-  integer,value :: lda
-  type(c_ptr),value :: _a
-  integer(c_int),value,intent(IN) :: a_n1
-  integer(c_int),value,intent(IN) :: a_n2
-  type(c_ptr),value :: _tau
-  integer(c_int),value,intent(IN) :: tau_n1
-  type(c_ptr),value :: _d
-  integer(c_int),value,intent(IN) :: d_n1
-  type(c_ptr),value :: _e
-  integer(c_int),value,intent(IN) :: e_n1
-  integer,value :: n
+  type(dim3),intent(IN) :: grid
+      type(dim3),intent(IN) :: block
+      integer(c_int),intent(IN) :: sharedMem
+      type(c_ptr),value,intent(IN) :: stream
+      integer(c_int),value :: lda
+      type(c_ptr) :: a
+      integer(c_int),value,intent(IN) :: a_n1
+      integer(c_int),value,intent(IN) :: a_n2
+      type(c_ptr) :: tau
+      integer(c_int),value,intent(IN) :: tau_n1
+      type(c_ptr) :: d
+      integer(c_int),value,intent(IN) :: d_n1
+      type(c_ptr) ::e
+      integer(c_int),value,intent(IN) :: e_n1
+      integer(c_int),value :: n
   ! TODO Create initial data on host
   ! TODO Copy data to device ! (dest,src,size,direction)
   CALL hipCheck(hipMemcpy(???,c_loc(???),C_SIZEOF(???),hipMemcpyHostToDevice)) ! 

@@ -26,21 +26,21 @@ module dsytd2_gpu_kernels
       use iso_c_binding
       use hip
       implicit none
-      type(dim3,,intent(IN, :: grid
-      type(dim3,,intent(IN, :: block
-      integer(c_int,,intent(IN, :: sharedMem
-      type(c_ptr,,value,intent(IN, :: stream
-      integer,value :: lda
-      type(c_ptr),value :: _a
+      type(dim3),intent(IN) :: grid
+      type(dim3),intent(IN) :: block
+      integer(c_int),intent(IN) :: sharedMem
+      type(c_ptr),value,intent(IN) :: stream
+      integer(c_int),value :: lda
+      type(c_ptr) :: a
       integer(c_int),value,intent(IN) :: a_n1
       integer(c_int),value,intent(IN) :: a_n2
-      type(c_ptr),value :: _tau
+      type(c_ptr) :: tau
       integer(c_int),value,intent(IN) :: tau_n1
-      type(c_ptr),value :: _d
+      type(c_ptr) :: d
       integer(c_int),value,intent(IN) :: d_n1
-      type(c_ptr),value :: _e
+      type(c_ptr) ::e
       integer(c_int),value,intent(IN) :: e_n1
-      integer,value :: n
+      integer(c_int),value :: n
     end subroutine
 
   end interface

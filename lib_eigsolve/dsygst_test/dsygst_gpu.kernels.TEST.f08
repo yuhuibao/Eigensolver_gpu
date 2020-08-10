@@ -34,11 +34,8 @@ contains
     subroutine print_matrix(A, N)
         integer :: N, i, j
         real(8) :: A(N, N)
-        do j = 1, N
-            do i = 1, N
-                print *, " ", A(i, j)
-            end do
-            print*, ""
+        do i = 1, N
+            write (*, "(32f6.0)") (A(i, j), j=1, N)
         end do
     end subroutine
 end module print_helper
@@ -50,18 +47,20 @@ function test_launch_krnl_afb01f_0_auto()
     use print_helper
     use dsygst_gpu_kernels
     implicit none
-    integer :: errorCode = 1
-    type(c_ptr) :: a_d= c_null_ptr
+    integer :: test_launch_krnl_afb01f_0_auto
+    integer :: errorCode = 1, i, j
+    type(c_ptr) :: a_d = c_null_ptr
     ! TODO fix parameters
     ! - Add missing arguments
     ! - Determine size of arrays (typically indicated by 'type(c_ptr)' type)
     ! - Add target where we need a pointer
-    integer(c_int), intent(IN) :: sharedMem=0
-    type(c_ptr), value, intent(IN) :: stream=c_null_ptr
-    integer(c_int), value :: kb, k
+    integer(c_int) :: sharedMem = 0
+    type(c_ptr) :: stream = c_null_ptr
+    integer(c_int), parameter :: nb = 3
+    integer(c_int) :: kb, k
 
-    double precision,allocatable,target,dimension(:,:) :: a
-    integer(c_int),parameter :: N = 32
+    double precision, allocatable, target, dimension(:, :) :: a
+    integer(c_int), parameter :: N = 32
     integer(c_size_t), parameter :: Nbytes = N*N*8
     ! Allocate host memory
     allocate (a(N, N))
@@ -75,26 +74,29 @@ function test_launch_krnl_afb01f_0_auto()
             end if
         end do
     end do
-    print_matrix(a,N)
-    
+    call print_matrix(a,N)
+
     ! Allocate array space on the device
-    call hipCheck(hipMalloc(a_d,Nbytes))
+    call hipCheck(hipMalloc(a_d, Nbytes))
     ! TODO Copy data to device ! (dest,src,size,direction)
-    CALL hipCheck(hipMemcpy(a_d, c_loc(a), Nbytes, hipMemcpyHostToDevice, stream)) !
+    CALL hipCheck(hipMemcpy(a_d, c_loc(a), Nbytes, hipMemcpyHostToDevice)) !
     ! ... might be more (or less) than two memcopies
     ! TODO run the test
-    CALL launch_krnl_afb01f_0_auto(sharedMem, stream, kb, a_d, k) ! Modify sharedMem if other than default 0
-    CALL hipCheck(hipDeviceSynchronize())
+    do k = 1, N,nb
+        kb = min(N-k+1, nb)
+        CALL launch_krnl_afb01f_0_auto(sharedMem, stream, kb, a_d, k, N) ! Modify sharedMem if other than default 0
+        CALL hipCheck(hipDeviceSynchronize())
+    end do
     !CALL launch_krnl_afb01f_0_cpu(0, c_null_ptr, sharedMem, stream, kb, a_d, k)
 
     ! TODO Copy results back to host
-    CALL hipCheck(hipMemcpy(c_loc(a), a_d, Nbytes, hipMemcpyDeviceToHost, stream))
+    CALL hipCheck(hipMemcpy(c_loc(a), a_d, Nbytes, hipMemcpyDeviceToHost))
 
     ! ... might be more (or less) than two memcopies
     ! TODO Compare results
-    print_matrix(a,N)
+    call print_matrix(a, N)
     ! TODO Update error code if the results do not match
-    return 0
+    test_launch_krnl_afb01f_0_auto = 0
 end function
 
 program test_dsygst_gpu_kernels

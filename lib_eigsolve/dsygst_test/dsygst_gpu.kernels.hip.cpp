@@ -67,24 +67,38 @@ hipDoubleComplex conj(hipDoubleComplex &z) { return hipConj(z); }
 // - Shared Memory: 0
 // - Stream: stream1
 
-__global__ void krnl_afb01f_0(int kb, double *a, int k) {
+__global__ void krnl_afb01f_0(int kb, double *a, int k, int N) {
 
-  unsigned int j = 1 + threadIdx.y + blockIdx.y * blockDim.y;
-  unsigned int i = 1 + threadIdx.x + blockIdx.x * blockDim.x;
+  
+  /* unsigned int j = threadIdx.y + blockIdx.y * blockDim.y;
+  unsigned int i = threadIdx.x + blockIdx.x * blockDim.x;
+  k = k-1;
   if (j >= k && j <= (k + kb - 1) && i >= k && i <= (k + kb - 1)) {
     if ((j < i)) {
-      a[_idx_a(i, j)] = a[_idx_a(j, i)];
+      *(a+i+j*N) = *(a+j+i*N);
+    }
+  } */
+  k = k - 1;
+  unsigned int j = k + threadIdx.y + blockIdx.y * blockDim.y;
+  unsigned int i = k + threadIdx.x + blockIdx.x * blockDim.x;
+  if ((j <= (k + kb - 1)) && (i <= (k + kb - 1)) ){
+    if ((j < i)) {
+      *(a+i+j*N) = *(a+j+i*N);
     }
   }
+
 }
 
 extern "C" void
-launch_krnl_afb01f_0(dim3 *grid, dim3 *block, const int sharedMem, hipStream_t stream, int kb, double *a, int k) {
-  hipLaunchKernelGGL((krnl_afb01f_0), *grid, *block, sharedMem, stream, kb, a, k);
+launch_krnl_afb01f_0(dim3 *grid, dim3 *block, const int sharedMem, hipStream_t stream, int kb, double *a, int k, int N) {
+  hipLaunchKernelGGL((krnl_afb01f_0), *grid, *block, sharedMem, stream, kb, a, k,N);
 }
-extern "C" void launch_krnl_afb01f_0_auto(const int sharedMem, hipStream_t stream, int kb, double *a, int k) {
-  const unsigned int krnl_afb01f_0_NX = kb;
-  const unsigned int krnl_afb01f_0_NY = kb;
+extern "C" void launch_krnl_afb01f_0_auto(int sharedMem, hipStream_t stream, int kb, double **a, int k,int N) {
+//   const unsigned int krnl_afb01f_0_NX = kb;
+//   const unsigned int krnl_afb01f_0_NY = kb;
+
+  const unsigned int krnl_afb01f_0_NX = N;
+  const unsigned int krnl_afb01f_0_NY = N;
 
   const unsigned int krnl_afb01f_0_blockX = 16;
   const unsigned int krnl_afb01f_0_blockY = 16;
@@ -92,8 +106,10 @@ extern "C" void launch_krnl_afb01f_0_auto(const int sharedMem, hipStream_t strea
   const unsigned int krnl_afb01f_0_gridX = divideAndRoundUp(krnl_afb01f_0_NX, krnl_afb01f_0_blockX);
   const unsigned int krnl_afb01f_0_gridY = divideAndRoundUp(krnl_afb01f_0_NY, krnl_afb01f_0_blockY);
 
+  printf("%d, %d\n", krnl_afb01f_0_gridX, krnl_afb01f_0_gridY);
+
   dim3 grid(krnl_afb01f_0_gridX, krnl_afb01f_0_gridY);
   dim3 block(krnl_afb01f_0_blockX, krnl_afb01f_0_blockY);
-  hipLaunchKernelGGL((krnl_afb01f_0), grid, block, sharedMem, stream, kb, a, k);
+  hipLaunchKernelGGL((krnl_afb01f_0), grid, block, sharedMem, stream, kb, *a, k,N);
 }
 // END krnl_afb01f_0
