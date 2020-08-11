@@ -28,8 +28,8 @@ module dsytd2_gpu_kernels
       implicit none
       type(dim3),intent(IN) :: grid
       type(dim3),intent(IN) :: block
-      integer(c_int),intent(IN) :: sharedMem
-      type(c_ptr),value,intent(IN) :: stream
+      integer(c_int),value, intent(IN) :: sharedMem
+      type(c_ptr),intent(IN) :: stream
       integer(c_int),value :: lda
       type(c_ptr) :: a
       integer(c_int),value,intent(IN) :: a_n1

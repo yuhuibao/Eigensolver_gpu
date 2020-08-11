@@ -47,7 +47,12 @@ hipDoubleComplex conj(hipDoubleComplex &z) { return hipConj(z); }
 // ...
 } // namespace
 #define divideAndRoundUp(x, y) ((x) / (y) + ((x) % (y) != 0))
-
+#undef _idx
+#undef _idx_a
+#undef _idx_a_s
+#define _idx(a) ((a - 1))
+#define _idx_a(a, b) ((a - 1) + n * (b - 1))
+#define _idx_a_s(a, b) ((a - 1) + a_s_n1 * (b - 1))
 // BEGIN krnl_afb01f_0
 /* Fortran original:
         ! kernel do(2) <<<*,*, 0, stream1>>>
@@ -67,7 +72,7 @@ hipDoubleComplex conj(hipDoubleComplex &z) { return hipConj(z); }
 // - Shared Memory: 0
 // - Stream: stream1
 
-__global__ void krnl_afb01f_0(int kb, double *a, int k, int N) {
+__global__ void krnl_afb01f_0(int kb, double *a, int k, int n) {
 
   
   /* unsigned int j = threadIdx.y + blockIdx.y * blockDim.y;
@@ -75,15 +80,21 @@ __global__ void krnl_afb01f_0(int kb, double *a, int k, int N) {
   k = k-1;
   if (j >= k && j <= (k + kb - 1) && i >= k && i <= (k + kb - 1)) {
     if ((j < i)) {
-      *(a+i+j*N) = *(a+j+i*N);
+      *(a+i+j*n) = *(a+j+i*n);
     }
   } */
+  /* unsigned int j = k + threadIdx.y + blockIdx.y * blockDim.y;
+  unsigned int i = k + threadIdx.x + blockIdx.x * blockDim.x;
+  if ((j <= (k + kb - 1)) && (i <= (k + kb - 1)) ){
+    if ((j < i)){
+        a[_idx_a(i,j)] = a[_idx_a(j,i)];
+    } */
   k = k - 1;
   unsigned int j = k + threadIdx.y + blockIdx.y * blockDim.y;
   unsigned int i = k + threadIdx.x + blockIdx.x * blockDim.x;
   if ((j <= (k + kb - 1)) && (i <= (k + kb - 1)) ){
     if ((j < i)) {
-      *(a+i+j*N) = *(a+j+i*N);
+      *(a+i+j*n) = *(a+j+i*n);
     }
   }
 

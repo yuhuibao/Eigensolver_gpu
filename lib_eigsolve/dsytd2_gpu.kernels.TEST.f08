@@ -184,34 +184,45 @@ function test_launch_dsytd2_gpu()
   use dsytd2_gpu_kernels
   implicit none
   integer :: errorCode = 1
+  type(c_ptr) :: a_d = c_null_ptr
+  type(c_ptr) :: tau_d = c_null_ptr
+  type(c_ptr) :: d_d = c_null_ptr
+  type(c_ptr) :: e_d = c_null_ptr
   ! TODO fix parameters
   ! - Add missing arguments
   ! - Determine size of arrays (typically indicated by 'type(c_ptr)' type)
   ! - Add target where we need a pointer
-  type(dim3),intent(IN) :: grid
-      type(dim3),intent(IN) :: block
-      integer(c_int),intent(IN) :: sharedMem
-      type(c_ptr),value,intent(IN) :: stream
-      integer(c_int),value :: lda
-      type(c_ptr) :: a
-      integer(c_int),value,intent(IN) :: a_n1
-      integer(c_int),value,intent(IN) :: a_n2
-      type(c_ptr) :: tau
-      integer(c_int),value,intent(IN) :: tau_n1
-      type(c_ptr) :: d
-      integer(c_int),value,intent(IN) :: d_n1
-      type(c_ptr) ::e
-      integer(c_int),value,intent(IN) :: e_n1
+  type(dim3) :: grid
+      type(dim3) :: block
+      integer(c_int) :: sharedMem
+      type(c_ptr) :: stream
+      integer(c_int):: lda
+      double precision, allocatable, target, dimension(:, :) :: a
+      integer(c_int) :: a_n1
+      integer(c_int) :: a_n2
+      double precision, allocatable, target, dimension(:) :: tau
+      integer(c_int) :: tau_n1
+      double precision, allocatable, target, dimension(:) :: d
+      integer(c_int) :: d_n1
+      double precision, allocatable, target, dimension(:) :: e
+      integer(c_int) :: e_n1
       integer(c_int),value :: n
+    ! Allocate host memory
+      allocate (a(a_n1, a_n2))
+      allocate(tau(tau_n1))
+      allocate(d(d_n1))
+      allocate(d(d_n1))  
   ! TODO Create initial data on host
   ! TODO Copy data to device ! (dest,src,size,direction)
-  CALL hipCheck(hipMemcpy(???,c_loc(???),C_SIZEOF(???),hipMemcpyHostToDevice)) ! 
-  CALL hipCheck(hipMemcpy(???,c_loc(???),C_SIZEOF(???),hipMemcpyHostToDevice)) ! 
+  CALL hipCheck(hipMemcpy(a_d,c_loc(a),C_SIZEOF(a_n1*a_n2*8),hipMemcpyHostToDevice)) ! 
+  CALL hipCheck(hipMemcpy(tau_d,c_loc(tau),C_SIZEOF(tau_n1*8),hipMemcpyHostToDevice)) !
+  CALL hipCheck(hipMemcpy(d_d,c_loc(d),C_SIZEOF(d_n1*8),hipMemcpyHostToDevice)) 
+  CALL hipCheck(hipMemcpy(e_d,c_loc(e),C_SIZEOF(e_n1*8),hipMemcpyHostToDevice))
   ! ... might be more (or less) than two memcopies 
   ! TODO run the test
-  CALL launch_dsytd2_gpu(0,c_null_ptr,grid,block,sharedMem,stream,lda,a,a_n1,a_n2,tau,tau_n1,d,d_n1,e,e_n1,n) ! Modify sharedMem if other than default 0
+  CALL launch_dsytd2_gpu(grid,block,sharedMem,stream,lda,a,a_n1,a_n2,tau,tau_n1,d,d_n1,e,e_n1,n) ! Modify sharedMem if other than default 0
   CALL hipCheck(hipDeviceSynchronize())
-  CALL launch_dsytd2_gpu_cpu(0,c_null_ptr,grid,block,sharedMem,stream,lda,a,a_n1,a_n2,tau,tau_n1,d,d_n1,e,e_n1,n)
+  !CALL launch_dsytd2_gpu_cpu(0,c_null_ptr,grid,block,sharedMem,stream,lda,a,a_n1,a_n2,tau,tau_n1,d,d_n1,e,e_n1,n)
 
   ! TODO Copy results back to host
   CALL hipCheck(hipMemcpy(c_loc(???),???,C_SIZEOF(???),hipMemcpyDeviceToHost)
