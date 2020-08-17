@@ -49,10 +49,10 @@ hipDoubleComplex conj(hipDoubleComplex &z) { return hipConj(z); }
 #define divideAndRoundUp(x, y) ((x) / (y) + ((x) % (y) != 0))
 #undef _idx
 #undef _idx_a
-#undef _idx_a_s
+
 #define _idx(a) ((a - 1))
 #define _idx_a(a, b) ((a - 1) + n * (b - 1))
-#define _idx_a_s(a, b) ((a - 1) + a_s_n1 * (b - 1))
+
 // BEGIN krnl_afb01f_0
 /* Fortran original:
         ! kernel do(2) <<<*,*, 0, stream1>>>

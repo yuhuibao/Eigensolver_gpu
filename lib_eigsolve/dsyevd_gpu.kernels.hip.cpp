@@ -45,6 +45,7 @@ hipDoubleComplex conj(hipDoubleComplex &z) { return hipConj(z); }
 // TODO Add the following functions:
 // - sign(x,y) = sign(y) * |x| - sign transfer function
 // ...
+
 } // namespace
 #define divideAndRoundUp(x, y) ((x) / (y) + ((x) % (y) != 0))
 
@@ -67,7 +68,11 @@ hipDoubleComplex conj(hipDoubleComplex &z) { return hipConj(z); }
 // - Shared Memory: 0
 // - Stream: 0
 
-__global__ void krnl_e26a05_0(int n, TODO declaration not found z, TODO declaration not found a) {
+__global__ void krnl_e26a05_0(int n, double *z, double *a) {
+#undef _idx_a
+#undef _idx_z
+#define _idx_a(a, b) ((a - 1) + n * (b - 1))
+#define _idx_z(a, b) ((a - 1) + n * (b - 1))
 
   unsigned int j = 1 + threadIdx.y + blockIdx.y * blockDim.y;
   unsigned int i = 1 + threadIdx.x + blockIdx.x * blockDim.x;
@@ -78,25 +83,25 @@ __global__ void krnl_e26a05_0(int n, TODO declaration not found z, TODO declarat
   }
 }
 
-extern "C" void launch_krnl_e26a05_0(dim3 *grid,
-                                     dim3 *block,
-                                     const int sharedMem,
-                                     hipStream_t stream,
-                                     int n,
-                                     TODO declaration not found z,
-                                     TODO declaration not found a) {
-  hipLaunchKernelGGL((krnl_e26a05_0), *grid, *block, sharedMem, stream, n, z, a);
+extern "C" void launch_krnl_e26a05_0(dim3 *grid, dim3 *block,
+                                     const int sharedMem, hipStream_t stream,
+                                     int n, double *z, double *a) {
+  hipLaunchKernelGGL((krnl_e26a05_0), *grid, *block, sharedMem, stream, n, z,
+                     a);
 }
-extern "C" void
-launch_krnl_e26a05_0_auto(const int sharedMem, hipStream_t stream, int n, TODO declaration not found z, TODO declaration not found a) {
+extern "C" void launch_krnl_e26a05_0_auto(const int sharedMem,
+                                          hipStream_t stream, int n, double *z,
+                                          double *a) {
   const unsigned int krnl_e26a05_0_NX = n;
   const unsigned int krnl_e26a05_0_NY = n;
 
   const unsigned int krnl_e26a05_0_blockX = 16;
   const unsigned int krnl_e26a05_0_blockY = 16;
 
-  const unsigned int krnl_e26a05_0_gridX = divideAndRoundUp(krnl_e26a05_0_NX, krnl_e26a05_0_blockX);
-  const unsigned int krnl_e26a05_0_gridY = divideAndRoundUp(krnl_e26a05_0_NY, krnl_e26a05_0_blockY);
+  const unsigned int krnl_e26a05_0_gridX =
+      divideAndRoundUp(krnl_e26a05_0_NX, krnl_e26a05_0_blockX);
+  const unsigned int krnl_e26a05_0_gridY =
+      divideAndRoundUp(krnl_e26a05_0_NY, krnl_e26a05_0_blockY);
 
   dim3 grid(krnl_e26a05_0_gridX, krnl_e26a05_0_gridY);
   dim3 block(krnl_e26a05_0_blockX, krnl_e26a05_0_blockY);
@@ -126,37 +131,47 @@ launch_krnl_e26a05_0_auto(const int sharedMem, hipStream_t stream, int n, TODO d
 // - Shared Memory: 0
 // - Stream: stream1
 
-__global__ void krnl_b1f342_1(float *w, int n, int k, float *v) {
+__global__ void krnl_b1f342_1(double *w, int n, int k, double *v) {
+#undef _idx_v
+#define _idx_v(a, b) (a - 1) + n *(b - 1)
 
   unsigned int j = 1 + threadIdx.y + blockIdx.y * blockDim.y;
-  unsigned int i = 1 + threadIdx.x + blockIdx.x * blockDim.x;
+  unsigned int i = 1 + n - k + threadIdx.x + blockIdx.x * blockDim.x;
   if ((j <= k) && (i <= n)) {
-    if (((i - n + k) == j)) {
+    if (i - n + k == j) {
       v[_idx_v(i, j)] = 1.0e0;
 
     } else if (((i - n + k) > j)) {
-      w[_idx_w((i - n + k), j)] = v[_idx_v(i, j)];
+      w[_idx_v((i - n + k), j)] = v[_idx_v(i, j)];
       v[_idx_v(i, j)] = 0.0e0;
     }
   }
 }
 
-extern "C" void launch_krnl_b1f342_1(dim3 *grid, dim3 *block, const int sharedMem, hipStream_t stream, float *w, int n, int k, float *v) {
-  hipLaunchKernelGGL((krnl_b1f342_1), *grid, *block, sharedMem, stream, w, n, k, v);
+extern "C" void launch_krnl_b1f342_1(dim3 *grid, dim3 *block,
+                                     const int sharedMem, hipStream_t stream,
+                                     double *w, int n, int k, double *v) {
+  hipLaunchKernelGGL((krnl_b1f342_1), *grid, *block, sharedMem, stream, w, n, k,
+                     v);
 }
-extern "C" void launch_krnl_b1f342_1_auto(const int sharedMem, hipStream_t stream, float *w, int n, int k, float *v) {
-  const unsigned int krnl_b1f342_1_NX = k;
-  const unsigned int krnl_b1f342_1_NY = n;
+extern "C" void launch_krnl_b1f342_1_auto(const int sharedMem,
+                                          hipStream_t stream, double *w, int n,
+                                          int k, double *v) {
+  const unsigned int krnl_b1f342_1_NX = n;
+  const unsigned int krnl_b1f342_1_NY = k;
 
   const unsigned int krnl_b1f342_1_blockX = 16;
   const unsigned int krnl_b1f342_1_blockY = 16;
 
-  const unsigned int krnl_b1f342_1_gridX = divideAndRoundUp(krnl_b1f342_1_NX, krnl_b1f342_1_blockX);
-  const unsigned int krnl_b1f342_1_gridY = divideAndRoundUp(krnl_b1f342_1_NY, krnl_b1f342_1_blockY);
+  const unsigned int krnl_b1f342_1_gridX =
+      divideAndRoundUp(krnl_b1f342_1_NX, krnl_b1f342_1_blockX);
+  const unsigned int krnl_b1f342_1_gridY =
+      divideAndRoundUp(krnl_b1f342_1_NY, krnl_b1f342_1_blockY);
 
   dim3 grid(krnl_b1f342_1_gridX, krnl_b1f342_1_gridY);
   dim3 block(krnl_b1f342_1_blockX, krnl_b1f342_1_blockY);
-  hipLaunchKernelGGL((krnl_b1f342_1), grid, block, sharedMem, stream, w, n, k, v);
+  hipLaunchKernelGGL((krnl_b1f342_1), grid, block, sharedMem, stream, w, n, k,
+                     v);
 }
 // END krnl_b1f342_1
 
@@ -179,33 +194,42 @@ extern "C" void launch_krnl_b1f342_1_auto(const int sharedMem, hipStream_t strea
 // - Shared Memory: 0
 // - Stream: 0
 
-__global__ void krnl_b95769_2(int m, float *w, int k, float *v) {
-
+__global__ void krnl_b95769_2(int m, double *w, int k, double *v) {
+#undef _idx_v
+#define _idx_v(a, b) (a - 1) + m *(b - 1)
   unsigned int j = 1 + threadIdx.y + blockIdx.y * blockDim.y;
-  unsigned int i = 1 + threadIdx.x + blockIdx.x * blockDim.x;
+  unsigned int i = 1 + m - k + threadIdx.x + blockIdx.x * blockDim.x;
   if ((j <= k) && (i <= m)) {
     if (((i - m + k) > j)) {
-      v[_idx_v(i, j)] = w[_idx_w((i - m + k), j)];
+      v[_idx_v(i, j)] = w[_idx_v((i - m + k), j)];
     }
   }
 }
 
-extern "C" void launch_krnl_b95769_2(dim3 *grid, dim3 *block, const int sharedMem, hipStream_t stream, int m, float *w, int k, float *v) {
-  hipLaunchKernelGGL((krnl_b95769_2), *grid, *block, sharedMem, stream, m, w, k, v);
+extern "C" void launch_krnl_b95769_2(dim3 *grid, dim3 *block,
+                                     const int sharedMem, hipStream_t stream,
+                                     int m, double *w, int k, double *v) {
+  hipLaunchKernelGGL((krnl_b95769_2), *grid, *block, sharedMem, stream, m, w, k,
+                     v);
 }
-extern "C" void launch_krnl_b95769_2_auto(const int sharedMem, hipStream_t stream, int m, float *w, int k, float *v) {
-  const unsigned int krnl_b95769_2_NX = k;
-  const unsigned int krnl_b95769_2_NY = m;
+extern "C" void launch_krnl_b95769_2_auto(const int sharedMem,
+                                          hipStream_t stream, int m, double *w,
+                                          int k, double *v) {
+  const unsigned int krnl_b95769_2_NX = m;
+  const unsigned int krnl_b95769_2_NY = k;
 
   const unsigned int krnl_b95769_2_blockX = 16;
   const unsigned int krnl_b95769_2_blockY = 16;
 
-  const unsigned int krnl_b95769_2_gridX = divideAndRoundUp(krnl_b95769_2_NX, krnl_b95769_2_blockX);
-  const unsigned int krnl_b95769_2_gridY = divideAndRoundUp(krnl_b95769_2_NY, krnl_b95769_2_blockY);
+  const unsigned int krnl_b95769_2_gridX =
+      divideAndRoundUp(krnl_b95769_2_NX, krnl_b95769_2_blockX);
+  const unsigned int krnl_b95769_2_gridY =
+      divideAndRoundUp(krnl_b95769_2_NY, krnl_b95769_2_blockY);
 
   dim3 grid(krnl_b95769_2_gridX, krnl_b95769_2_gridY);
   dim3 block(krnl_b95769_2_blockX, krnl_b95769_2_blockY);
-  hipLaunchKernelGGL((krnl_b95769_2), grid, block, sharedMem, stream, m, w, k, v);
+  hipLaunchKernelGGL((krnl_b95769_2), grid, block, sharedMem, stream, m, w, k,
+                     v);
 }
 // END krnl_b95769_2
 
@@ -314,8 +338,12 @@ extern "C" void launch_krnl_b95769_2_auto(const int sharedMem, hipStream_t strea
 
 */
 
-__global__ void finish_t_block_kernel(int n, int ldt, float *t, float *tau) {
-  float *t_s;
+__global__ void finish_t_block_kernel(int n, int ldt, double *t, double *tau) {
+#undef _idx
+#undef _idx_t
+#define _idx(a) ((a - 1))
+#define _idx_t(a, b) ((a - 1) + ldt * (b - 1))
+  __shared__ double t_s[2080];
   int tid;
   int tx;
   int ty;
@@ -323,52 +351,60 @@ __global__ void finish_t_block_kernel(int n, int ldt, float *t, float *tau) {
   int j;
   int k;
   int diag;
-  hipFloatComplex cv;
+  hipDoubleComplex cv;
 
-  // ! T_s contains only lower triangular elements of T in linear array, by row
-  // ! (i,j) --> ((i-1)*i/2 + j)
-  // ! TODO could not parse: #define ij2tri(i,j) (ishft((i-1)*i,-1) + j)
-  tx = threadIdx.x;
-  ty = threadIdx.y;
-  tid = ((threadIdx.y - 1) * blockDim.x + tx);
+// ! T_s contains only lower triangular elements of T in linear array, by row
+// ! (i,j) --> ((i-1)*i/2 + j)
+// ! TODO could not parse: #define ij2tri(i,j) (ishft((i-1)*i,-1) + j)
+#define IJ2TRI(i, j) ((((i - 1) * i) >> 1) + j)
+  tx = threadIdx.x + 1;
+  ty = threadIdx.y + 1;
+  tid = ((threadIdx.y) * blockDim.x + tx);
   // ! Linear thread id
   // ! Load T into shared memory
   if ((tx <= n)) {
     for (int j = ty; j <= n; j += blockDim.y) {
       cv = tau[_idx(j)];
       if ((tx > j)) {
-        t_s[_idx(ij2tri[_idx_ij2tri(tx, j)])] = (-cv * t[_idx_t(tx, j)]);
+        t_s[_idx(IJ2TRI(tx, j))] = (-cv * t[_idx_t(tx, j)]);
 
-      } else if ((tx == j)) {
-        t_s[_idx(ij2tri[_idx_ij2tri(tx, j)])] = cv;
+      } else if (tx == j) {
+        t_s[_idx(IJ2TRI(tx, j))] = cv;
       }
     }
   }
-  __syncthreads() // ! Perform column by column update by first thread column
-      for (int i = (n - 1); i <= 1; i += -1) {
-    if ((ty == 1)) {
-      if ((tx > i & tx <= n)) {
+  __syncthreads(); // ! Perform column by column update by first thread column
+  for (int i = (n - 1); i <= 1; i += -1) {
+    if (ty == 1) {
+      if ((tx > i && tx <= n)) {
         cv = 0.0e0;
         for (int j = (i + 1); j <= tx; j += 1) {
-          cv = (cv + t_s[_idx(ij2tri[_idx_ij2tri(j, i)])] * t_s[_idx(ij2tri[_idx_ij2tri(tx, j)])]);
+          cv = cv + t_s[_idx(IJ2TRI(j, i))] * t_s[_idx(IJ2TRI(tx, j))];
         }
       }
     }
-    __syncthreads() if ((ty == 1 & tx > i & tx <= n)) { t_s[_idx(ij2tri[_idx_ij2tri(tx, i)])] = cv; }
-    __syncthreads()
+    __syncthreads();
+    if ((ty == 1 & tx > i & tx <= n)) {
+      t_s[_idx(IJ2TRI(tx, i))] = cv;
+    }
+    __syncthreads();
   }
-  __syncthreads() // ! Write T_s to global
-      if ((tx <= n)) {
+  __syncthreads();
+  // ! Write T_s to global
+  if ((tx <= n)) {
     for (int j = ty; j <= n; j += blockDim.y) {
       if ((tx >= j)) {
-        t[_idx_t(tx, j)] = t_s[_idx(ij2tri[_idx_ij2tri(tx, j)])];
+        t[_idx_t(tx, j)] = t_s[_idx(IJ2TRI(tx, j))];
       }
     }
   }
 }
 
-extern "C" void
-launch_finish_t_block_kernel(dim3 *grid, dim3 *block, const int sharedMem, hipStream_t stream, int n, int ldt, float *t, float *tau) {
-  hipLaunchKernelGGL((finish_t_block_kernel), *grid, *block, sharedMem, stream, n, ldt, t, tau);
+extern "C" void launch_finish_t_block_kernel(dim3 *grid, dim3 *block,
+                                             const int sharedMem,
+                                             hipStream_t stream, int n, int ldt,
+                                             double *t, double *tau) {
+  hipLaunchKernelGGL((finish_t_block_kernel), *grid, *block, sharedMem, stream,
+                     n, ldt, t, tau);
 }
 // END finish_t_block_kernel

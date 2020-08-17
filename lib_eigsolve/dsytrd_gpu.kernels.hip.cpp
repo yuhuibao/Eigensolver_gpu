@@ -43,7 +43,7 @@ hipFloatComplex conj(hipFloatComplex &c) { return hipConjf(c); }
 hipDoubleComplex conj(hipDoubleComplex &z) { return hipConj(z); }
 
 // TODO Add the following functions:
- - sign(x,y) = sign(y) * |x| - sign transfer function
+// - sign(x,y) = sign(y) * |x| - sign transfer function
 // ...
 } // namespace
 #define divideAndRoundUp(x, y) ((x) / (y) + ((x) % (y) != 0))
@@ -223,7 +223,7 @@ __global__ void dsyr2_mv_kernel(int n, int m, double *v, int ldv, double *w,
     rv = (-w[_idx_w(n, j)] * v[_idx_v(i, j)] -
           v[_idx_v(n, j)] * w[_idx_w(i, j)]);
     // ! Update x
-    istat = atomicAdd(x[_idx(i)], rv);
+    istat = atomicAdd(x+_idx(i), rv);
   }
   if ((threadIdx.y == 0)) {
     // ! Zero out column for zhemv call
@@ -433,7 +433,7 @@ __global__ void dlarfg_kernel(int n, double tau, double e, double *x) {
   __syncthreads();
   alphar = alpha_s;
   rsum = 0.0 /*_8*/;
-  nb = ceiling((make_float(n) / blockDim.x));
+  nb = ceil((float(n) / blockDim.x));
   // ! number of blocks down column
   i = tid;
   for (int j = 1; j <= nb; j += 1) {
@@ -461,7 +461,7 @@ __global__ void dlarfg_kernel(int n, double tau, double e, double *x) {
   rv2 = __shfl_down(rv1, 16);
   rv1 = (rv1 + rv2);
   if ((laneid == 1)) {
-    istat = atomicAdd(xnorm, rv1);
+    istat = atomicAdd(&xnorm, rv1);
   }
   __syncthreads();
   if ((xnorm == 0.0 /*_8*/)) {
@@ -780,7 +780,7 @@ __global__ void dsyr2_mv_dlarfg_kernel(int n, int m, double *v, int ldv,
     rv = (-w[_idx_w(n, j)] * v[_idx_v(i, j)] -
           v[_idx_v(n, j)] * w[_idx_w(i, j)]);
     // ! Update x
-    istat = atomicAdd(x[_idx(i)], rv);
+    istat = atomicAdd(x+_idx(i), rv);
   }
   if ((ty == 1)) {
     // ! Zero out column for dgemv call
@@ -798,7 +798,7 @@ __threadfence();
 nfinished = 0;
 __syncthreads();
 if (((tx + ty) == 2)) {
-  nfinished = atomicInc(finished, (nblocks - 1));
+  nfinished = atomicInc(&finished, (nblocks - 1));
 }
 __syncthreads();
 if ((nfinished < (nblocks - 1))) {
@@ -816,7 +816,7 @@ if ((tid == 1)) {
 __syncthreads();
 alphar = alpha_s;
 rsum = 0.0 /*_8*/;
-nb = ceiling((make_float((n - 1)) / blockDim.x * blockDim.y));
+nb = ceil((float((n - 1)) / blockDim.x * blockDim.y));
 // ! number of blocks down column
 i = tid;
 for (int j = 1; j <= nb; j += 1) {
@@ -844,7 +844,7 @@ rv1 = (rv1 + rv2);
 rv2 = __shfl_down(rv1, 16);
 rv1 = (rv1 + rv2);
 if ((laneid == 1)) {
-  istat = atomicAdd(xnorm, rv1);
+  istat = atomicAdd(&xnorm, rv1);
 }
 __syncthreads();
 if ((xnorm == 0.0 /*_8*/)) {
@@ -1046,10 +1046,10 @@ __global__ void stacked_dgemv_t(int m, int n, int ldv, int ldw, double *v,
   rv1 = (rv1 + rv2);
   if ((tx == 1)) {
     if ((i > m)) {
-      istat = atomicAdd(z2[_idx((i - m))], rv1);
+      istat = atomicAdd(z2+_idx((i - m)), rv1);
 
     } else {
-      istat = atomicAdd(z1[_idx(i)], rv1);
+      istat = atomicAdd(z1+_idx(i), rv1);
     }
   }
   return;
@@ -1150,7 +1150,7 @@ __global__ void stacked_dgemv_n(int m, int n, int ldv, int ldw, double *v,
     rv2 = w[_idx_w(i, j)];
   }
   rv1 = (-rv2 * xr);
-  istat = atomicAdd(y[_idx(i)], rv1);
+  istat = atomicAdd(y+_idx(i), rv1);
   return;
 }
 
@@ -1294,7 +1294,7 @@ __global__ void finish_w_col_kernel(int n, double tau, double *x, double *y) {
   __syncthreads();
   rsum = 0.0 /*_8*/;
   mytau = tau;
-  nb = ceiling((make_float(n) / blockDim.x));
+  nb = ceil((float(n) / blockDim.x));
   // ! number of blocks down column
   i = tid;
   for (int j = 1; j <= nb; j += 1) {
@@ -1321,7 +1321,7 @@ __global__ void finish_w_col_kernel(int n, double tau, double *x, double *y) {
   rv2 = __shfl_down(rv1, 16);
   rv1 = (rv1 + rv2);
   if ((laneid == 1)) {
-    istat = atomicAdd(alphar, rv1);
+    istat = atomicAdd(&alphar, rv1);
   }
   __syncthreads();
   alpha = (-0.5e0 * mytau * alphar);
@@ -1548,13 +1548,13 @@ __global__ void stacked_dgemv_n_finish_w(int m, int n, int ldv, int ldw,
       rv2 = w[_idx_w(i, j)];
     }
     rv1 = (-rv2 * xr);
-    istat = atomicAdd(y[_idx(i)], rv1);
+    istat = atomicAdd(y+_idx(i), rv1);
   }
-  threadfence();
+  __threadfence();
   nfinished = 0;
   __syncthreads();
   if (((tx + ty) == 2)) {
-    nfinished = atomicInc(finished, (nblocks - 1));
+    nfinished = atomicInc(&finished, (nblocks - 1));
   }
   __syncthreads();
   if ((nfinished < (nblocks - 1))) {
@@ -1569,7 +1569,7 @@ __global__ void stacked_dgemv_n_finish_w(int m, int n, int ldv, int ldw,
   __syncthreads();
   rsum = 0.0 /*_8*/;
   mytau = tau;
-  nb = ceiling((make_float(m) / (blockDim.x * blockDim.y)));
+  nb = ceil(float(m) / (blockDim.x * blockDim.y));
   // ! number of blocks down column
   i = tid;
   for (int j = 1; j <= nb; j += 1) {
@@ -1596,7 +1596,7 @@ __global__ void stacked_dgemv_n_finish_w(int m, int n, int ldv, int ldw,
   rv2 = __shfl_down(rv1, 16);
   rv1 = (rv1 + rv2);
   if ((laneid == 1)) {
-    istat = atomicAdd(alphar, rv1);
+    istat = atomicAdd(&alphar, rv1);
   }
   __syncthreads();
   alpha = (-0.5e0 * mytau * alphar);

@@ -67,7 +67,11 @@ hipDoubleComplex conj(hipDoubleComplex &z) { return hipConj(z); }
 // - Shared Memory: 0
 // - Stream: stream1
 
-__global__ void krnl_959801_0(TODO declaration not found z, TODO declaration not found a, int n) {
+__global__ void krnl_959801_0(double *z, double *a, int n) {
+#undef _idx_a
+#undef _idx_z
+#define _idx_a(a, b) ((a - 1) + n * (b - 1))
+#define _idx_z(a, b) ((a - 1) + n * (b - 1))
 
   unsigned int j = 1 + threadIdx.y + blockIdx.y * blockDim.y;
   unsigned int i = 1 + threadIdx.x + blockIdx.x * blockDim.x;
@@ -78,25 +82,25 @@ __global__ void krnl_959801_0(TODO declaration not found z, TODO declaration not
   }
 }
 
-extern "C" void launch_krnl_959801_0(dim3 *grid,
-                                     dim3 *block,
-                                     const int sharedMem,
-                                     hipStream_t stream,
-                                     TODO declaration not found z,
-                                     TODO declaration not found a,
-                                     int n) {
-  hipLaunchKernelGGL((krnl_959801_0), *grid, *block, sharedMem, stream, z, a, n);
+extern "C" void launch_krnl_959801_0(dim3 *grid, dim3 *block,
+                                     const int sharedMem, hipStream_t stream,
+                                     double *z, double *a, int n) {
+  hipLaunchKernelGGL((krnl_959801_0), *grid, *block, sharedMem, stream, z, a,
+                     n);
 }
-extern "C" void
-launch_krnl_959801_0_auto(const int sharedMem, hipStream_t stream, TODO declaration not found z, TODO declaration not found a, int n) {
+extern "C" void launch_krnl_959801_0_auto(const int sharedMem,
+                                          hipStream_t stream, double *z,
+                                          double *a, int n) {
   const unsigned int krnl_959801_0_NX = n;
   const unsigned int krnl_959801_0_NY = n;
 
   const unsigned int krnl_959801_0_blockX = 16;
   const unsigned int krnl_959801_0_blockY = 16;
 
-  const unsigned int krnl_959801_0_gridX = divideAndRoundUp(krnl_959801_0_NX, krnl_959801_0_blockX);
-  const unsigned int krnl_959801_0_gridY = divideAndRoundUp(krnl_959801_0_NY, krnl_959801_0_blockY);
+  const unsigned int krnl_959801_0_gridX =
+      divideAndRoundUp(krnl_959801_0_NX, krnl_959801_0_blockX);
+  const unsigned int krnl_959801_0_gridY =
+      divideAndRoundUp(krnl_959801_0_NY, krnl_959801_0_blockY);
 
   dim3 grid(krnl_959801_0_gridX, krnl_959801_0_gridY);
   dim3 block(krnl_959801_0_blockX, krnl_959801_0_blockY);
