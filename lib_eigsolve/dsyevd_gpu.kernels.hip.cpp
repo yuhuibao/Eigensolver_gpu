@@ -222,7 +222,7 @@ extern "C" void launch_krnl_b1f342_1_auto(const int sharedMem,
                                           const int v_lb2,
                                           int k) {
   const unsigned int krnl_b1f342_1_NX = k;
-  const unsigned int krnl_b1f342_1_NY = n;
+  const unsigned int krnl_b1f342_1_NY = k;
 
   const unsigned int krnl_b1f342_1_blockX = 16;
   const unsigned int krnl_b1f342_1_blockY = 16;
