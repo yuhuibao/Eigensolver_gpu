@@ -161,7 +161,7 @@ contains
 
          blocks2D = dim3(ceiling(real(max(i, N - i))/32), ceiling(real(N - i)/8), 1)
          !call dsyr2_mv_kernel<<<blocks2D, threads2D>>>(i, N-i, A(1, i+1), lda, W(1, iw+1), ldw, A(1, i), W(1, iw), ldw)
-         CALL launch_dsyr2_mv_dlarfg_kernel(blocks2D, threads2D, 0, hipDefaultStream, i, N - i, A
+         CALL launch_dsyr2_mv_dlarfg_kernel(blocks2D, threads2D, 0, hipDefaultStream, i, N - i, lda, ldw, ldw, A(1,i+1),a_n1,a_2,a_lb1,a_lb2,W(1, iw+1),w_n1,w_2,w_lb1,w_lb2,W(1, iw),w_n1,w_2,w_lb1,w_lb2, A(1,i),a_n2,a_lb2, e(i-1), tau(i-1), finished(1))
 
          if (i > 1) then
             ! Generate elementary reflector H(i) to annihilate A(1:i-2, i)
