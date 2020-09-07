@@ -186,8 +186,7 @@ contains
 
       ! Finish forming T
       threads = dim3(64, 16, 1)
-      call finish_T_block_kernel<<<1, threads, 0, stream1>>>(K, T, ldt, tau)
-
+      CALL launch_finish_t_block_kernel(1, threads, 0, stream1, n, ldt, T, t_n1, t_n2, t_lb1, t_lb2, tau, tau_n1, tau_n2)
    end subroutine dlarft_gpu
 
    subroutine dlarfb_gpu(M, N, K, V, ldv, T, ldt, C, ldc, work, ldwork, W, ldw)
