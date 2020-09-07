@@ -182,15 +182,31 @@ __global__ void dsymv_gpu(int n,
                           double *y,
                           const int y_n1,
                           const int y_lb1) {
+
+const int ar_s_n1, ar_s_lb1, ar_s_n2, ar_s_lb2, r_s_n1, r_s_bl1
 #undef _idx_a
 #define _idx_a(a, b) ((a - (a_lb1)) + a_n1 * (b - (a_lb2)))
 #undef _idx_x
 #define _idx_x(a) ((a - (x_lb1)))
 #undef _idx_y
 #define _idx_y(a) ((a - (y_lb1)))
-
+#undef _idx_ar_s
+#define _idx_ar_s(a, b) ((a - (ar_s_lb1)) + ar_s_n1 * (b - (ar_s_lb2)))
+#undef _idx_r_s
+#define _idx_r_s(a) ((a - (r_s_lb1))) 
+#define BX 32
+#define BY 8
+#define NTILES 4
   // ! TODO could not parse:      real(8), dimension(bx + 1, bx), shared              :: ar_s
   // ! TODO could not parse:      real(8), dimension(bx), shared                    :: r_s
+  __shared__ double r_s[BX];
+  __shared__ double ar_s[BX + 1][BX];
+  ar_s_n1 = BX + 1;
+  ar_s_n2 = BX;
+  ar_s_lb1 = 1;
+  ar_s_lb2 + 1;
+  r_s_n1 = BX;
+  r_s_lb1 = 1;
   int tx;
   int ty;
   int ii;
@@ -205,11 +221,11 @@ __global__ void dsymv_gpu(int n,
   double ar;
   double xl;
   // ! ii,jj is index of top left corner of block
-  ii = ((blockIdx.y - 1) * blockDim.x + 1);
+  ii = ((blockIdx.y) * blockDim.x + 1);
   mysum = 0.0 /*_8*/;
-  tx = threadIdx.x;
-  ty = threadIdx.y;
-  if (((ii + (blockIdx.x - 1) * blockDim.x) > n)) {
+  tx = threadIdx.x + 1;
+  ty = threadIdx.y + 1;
+  if (((ii + (blockIdx.x) * blockDim.x) > n)) {
     return;
   }
   i = (ii + tx - 1);
@@ -225,17 +241,18 @@ __global__ void dsymv_gpu(int n,
     if ((ii == jj)) {
       // ! Load full block into shared memory
       for (int k = 0; k <= (ntiles - 1); k += 1) {
-        if ((i <= n & (j + k * blockDim.y) <= n)) {
+        if ((i <= n && (j + k * blockDim.y) <= n)) {
           ar_s[_idx_ar_s(tx, (ty + k * blockDim.y))] = a[_idx_a(i, (j + k * blockDim.y))];
         }
       }
-      __syncthreads() // ! Reflect to populate lower triangular part with true values of A
+      __syncthreads(); // ! Reflect to populate lower triangular part with true values of A
           for (int k = 0; k <= (ntiles - 1); k += 1) {
         if ((tx > (ty + k * blockDim.y))) {
           ar_s[_idx_ar_s(tx, (ty + k * blockDim.y))] = ar_s[_idx_ar_s((ty + k * blockDim.y), tx)];
         }
       }
-      __syncthreads() for (int k = 0; k <= (ntiles - 1); k += 1) {
+      __syncthreads();
+       for (int k = 0; k <= (ntiles - 1); k += 1) {
         if ((i <= n & (j + k * blockDim.y) <= n)) {
           mysum = (mysum + ar_s[_idx_ar_s(tx, (ty + k * blockDim.y))] * x[_idx_x((j + k * blockDim.y))]);
         }
@@ -248,11 +265,11 @@ __global__ void dsymv_gpu(int n,
         if (((j + k * blockDim.y) <= n)) {
           ar = a[_idx_a(i, (j + k * blockDim.y))];
         }
-        if ((i <= n & (j + k * blockDim.y) <= n)) {
+        if ((i <= n && (j + k * blockDim.y) <= n)) {
           mysum = (mysum + ar * x[_idx_x((j + k * blockDim.y))]);
         }
         // ! Perform product for symmetric lower block here
-        if ((i <= n & (j + k * blockDim.y) <= n)) {
+        if ((i <= n && (j + k * blockDim.y) <= n)) {
           rv1 = (ar * xl);
 
         } else {
@@ -273,10 +290,13 @@ __global__ void dsymv_gpu(int n,
           r_s[_idx_r_s((ty + k * blockDim.y))] = rv1;
         }
       }
-      __syncthreads() if ((ty == 1 & (jj + tx - 1) <= n)) { istat = atomicAdd(y[_idx_y((jj + tx - 1))], r_s[_idx_r_s(tx)]); }
+      __syncthreads(); 
+      if ((ty == 1 & (jj + tx - 1) <= n)) { 
+          istat = atomicAdd(y[_idx_y((jj + tx - 1))], r_s[_idx_r_s(tx)]); 
+      }
       // !call __syncthreads()
     }
-    __syncthreads()
+    __syncthreads();
   }
   if ((i <= n)) {
     istat = atomicAdd(y[_idx_y(i)], mysum);
