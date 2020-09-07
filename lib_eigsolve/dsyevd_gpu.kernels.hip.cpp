@@ -408,11 +408,15 @@ __global__ void finish_t_block_kernel(int n,
 #define _idx_t(a, b) ((a - (t_lb1)) + t_n1 * (b - (t_lb2)))
 #undef _idx_tau
 #define _idx_tau(a) ((a - (tau_lb1)))
+#undef _idx_t_s
+#define _idx_t_s(a) (a - 1)
 
   // ! T_s contains only lower triangular elements of T in linear array, by row
   // ! TODO could not parse:        real(8), dimension(2080), shared   :: t_s
   // ! (i,j) --> ((i-1)*i/2 + j)
   // ! TODO could not parse: #define ij2tri(i,j) (ishft((i-1)*i,-1) + j)
+  __shared__ double t_s[2080];
+  #define IJ2TRI(i, j) ((((i - 1) * i) >> 1) + j)
   int tid;
   int tx;
   int ty;
@@ -421,19 +425,19 @@ __global__ void finish_t_block_kernel(int n,
   int k;
   int diag;
   hipDoubleComplex cv;
-  tx = threadIdx.x;
-  ty = threadIdx.y;
-  tid = ((threadIdx.y - 1) * blockDim.x + tx);
+  tx = threadIdx.x + 1;
+  ty = threadIdx.y + 1;
+  tid = ((ty - 1) * blockDim.x + tx);
   // ! Linear thread id
   // ! Load T into shared memory
   if ((tx <= n)) {
     for (int j = ty; j <= n; j += blockDim.y) {
       cv = tau[_idx_tau(j)];
       if ((tx > j)) {
-        t_s[_idx_t_s(ij2tri[_idx_ij2tri(tx, j)])] = (-cv * t[_idx_t(tx, j)]);
+        t_s[_idx_t_s(IJ2TRI(tx, j))] = (-cv * t[_idx_t(tx, j)]);
 
       } else if ((tx == j)) {
-        t_s[_idx_t_s(ij2tri[_idx_ij2tri(tx, j)])] = cv;
+        t_s[_idx_t_s(IJ2TRI(tx, j))] = cv;
       }
     }
   }
@@ -443,18 +447,21 @@ __global__ void finish_t_block_kernel(int n,
       if ((tx > i & tx <= n)) {
         cv = 0.0e0;
         for (int j = (i + 1); j <= tx; j += 1) {
-          cv = (cv + t_s[_idx_t_s(ij2tri[_idx_ij2tri(j, i)])] * t_s[_idx_t_s(ij2tri[_idx_ij2tri(tx, j)])]);
+          cv = cv + t_s[_idx_t_s(IJ2TRI(j, i))] * t_s[_idx_t_s(IJ2TRI(tx, j))];
         }
       }
     }
-    __syncthreads() if ((ty == 1 & tx > i & tx <= n)) { t_s[_idx_t_s(ij2tri[_idx_ij2tri(tx, i)])] = cv; }
+    __syncthreads();
+    if ((ty == 1 & tx > i & tx <= n)) {
+        t_s[_idx_t_s(IJ2TRI(tx, i))] = cv;
+    }
     __syncthreads()
   }
   __syncthreads() // ! Write T_s to global
       if ((tx <= n)) {
     for (int j = ty; j <= n; j += blockDim.y) {
       if ((tx >= j)) {
-        t[_idx_t(tx, j)] = t_s[_idx_t_s(ij2tri[_idx_ij2tri(tx, j)])];
+        t[_idx_t(tx, j)] = t_s[_idx_t_s(IJ2TRI(tx, j))];
       }
     }
   }
