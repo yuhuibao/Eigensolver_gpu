@@ -741,7 +741,7 @@ __global__ void dsyr2_mv_dlarfg_kernel(int n,
   int laneid;
   int istat;
   int nblocks;
-  // ! TODO could not parse:        integer, shared                                     :: nfinished
+  __shared__ int nfinished;
   double rv;
   double rv1;
   double rv2;
@@ -751,12 +751,12 @@ __global__ void dsyr2_mv_dlarfg_kernel(int n,
   double alphar;
   double beta;
   double rsum;
-  // ! TODO could not parse:        real(8), shared                                     :: xnorm
-  // ! TODO could not parse:        real(8), shared                                     :: alpha_s
-  tx = threadIdx.x;
-  ty = threadIdx.y;
-  i = ((blockIdx.x - 1) * blockDim.x + tx);
-  j = ((blockIdx.y - 1) * blockDim.y + ty);
+  __shared__ double xnorm;
+  __shared__ double alpha_s;
+  tx = threadIdx.x + 1;
+  ty = threadIdx.y + 1;
+  i = ((blockIdx.x) * blockDim.x + tx);
+  j = ((blockIdx.y) * blockDim.y + ty);
   nblocks = (gridDim.x * gridDim.y);
   if ((i <= n & j <= m)) {
     rv = (-w[_idx_w(n, j)] * v[_idx_v(i, j)] - v[_idx_v(n, j)] * w[_idx_w(i, j)]);
@@ -774,21 +774,29 @@ __global__ void dsyr2_mv_dlarfg_kernel(int n,
       w2[_idx_w2((n + i), 2)] = 0;
     }
   }
-  threadfence() nfinished = 0;
-  __syncthreads() if (((tx + ty) == 2)) { nfinished = atomicInc(finished, (nblocks - 1)); }
-  __syncthreads() if ((nfinished < (nblocks - 1))) { return; } // ! Begin dlarfg work with last block
+  __threadfence();
+  nfinished = 0;
+  __syncthreads();
+  if (((tx + ty) == 2)) {
+    nfinished = atomicInc(&finished, (nblocks - 1));
+  }
+  __syncthreads();
+  if ((nfinished < (nblocks - 1))) {
+    return; // ! Begin dlarfg work with last block
+  }
   if ((n == 1)) {
     return;
   }
   tid = (tx + (ty - 1) * blockDim.x);
-  laneid = iand(tid, 31);
+  laneid = tid & 31;
   if ((tid == 1)) {
     alpha_s = x[_idx_x((n - 1))];
     xnorm = 0.0 /*_8*/;
   }
-  __syncthreads() alphar = alpha_s;
+  __syncthreads();
+  alphar = alpha_s;
   rsum = 0.0 /*_8*/;
-  nb = ceiling((make_float((n - 1)) / blockDim.x * blockDim.y));
+  nb = ceiling((float((n - 1)) / blockDim.x * blockDim.y));
   // ! number of blocks down column
   i = tid;
   for (int j = 1; j <= nb; j += 1) {
@@ -818,12 +826,13 @@ __global__ void dsyr2_mv_dlarfg_kernel(int n,
   if ((laneid == 1)) {
     istat = atomicAdd(xnorm, rv1);
   }
-  __syncthreads() if ((xnorm == 0.0 /*_8*/)) {
-    if ((tid == 1)) {
-      tau = 0.0 /*_8*/;
-    }
+  __syncthreads();
+if ((xnorm == 0.0 /*_8*/)) {
+  if ((tid == 1)) {
+    tau = 0.0 /*_8*/;
   }
-  else if ((tid == 1)) {
+} else {
+  if ((tid == 1)) {
     xnorm = sqrt(xnorm);
     rv1 = abs(alphar);
     // ! not taking abs of xnorm
@@ -833,7 +842,7 @@ __global__ void dsyr2_mv_dlarfg_kernel(int n,
       beta = -sign(scal, alphar);
 
     } else {
-      beta = -sign((scal * sqrt(((1.0e0 + (scal2 / scal)) * *2))), alphar);
+      beta = -sign((scal * sqrt(pow((1.0e0 + (scal2 / scal)),2))), alphar);
     }
     tau = ((beta - alphar) / beta);
     e = beta;
@@ -841,15 +850,16 @@ __global__ void dsyr2_mv_dlarfg_kernel(int n,
     alpha_s = (1.e0 / (alphar - beta));
     // !scaling factor for dscal
   }
-  __syncthreads() for (int i = tid; i <= (n - 1); i += (blockDim.x * blockDim.y)) {
+  __syncthreads();
+  for (int i = tid; i <= (n - 1); i += (blockDim.x * blockDim.y)) {
     if ((i <= (n - 2))) {
       x[_idx_x(i)] = (alpha_s * x[_idx_x(i)]);
 
     } else if ((i == (n - 1))) {
       x[_idx_x(i)] = 1.0 /*_8*/;
     }
-
-  } // ! TODO could not parse:        endif
+  }
+}
 }
 
 extern "C" void launch_dsyr2_mv_dlarfg_kernel(dim3 *grid,
