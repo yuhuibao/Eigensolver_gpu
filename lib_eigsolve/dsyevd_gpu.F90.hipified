@@ -97,7 +97,8 @@ contains
 #define _idx_w(a) ((a-(w_lb1)))
 #undef _idx_work
 #define _idx_work(a) ((a-(work_lb1)))
-      hipMemcpy(c_loc(w_h(1:N)), inc_c_ptr(w, _idx_w(1:N)*(8)), 1_8*(8)*(N),) hipMemcpy(c_loc(work_h(inde:(inde + N - 1))), inc_c_ptr(work, _idx_work(inde:(inde + N - 1))*(8)), 1_8*(8)*((inde + N - 1) - (inde) + 1),)
+      hipMemcpy(c_loc(w_h(1:N)), inc_c_ptr(w, _idx_w(1:N)*(8)), 1_8*(8)*(N),) 
+      hipMemcpy(c_loc(work_h(inde:(inde + N - 1))), inc_c_ptr(work, _idx_work(inde:(inde + N - 1))*(8)), 1_8*(8)*((inde + N - 1) - (inde) + 1),)
 
       ! Restore lower triangular of A (works if called from zhegvd only!)
       ! extracted to HIP C++ file
