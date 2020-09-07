@@ -468,7 +468,7 @@ __global__ void dlarfg_kernel(int n, double tau, double e, double *x, const int 
   __syncthreads();
   alphar = alpha_s;
   rsum = 0.0 /*_8*/;
-  nb = ceiling((float(n) / blockDim.x));
+  nb = ceil((float(n) / blockDim.x));
   // ! number of blocks down column
   i = tid;
   for (int j = 1; j <= nb; j += 1) {
@@ -796,7 +796,7 @@ __global__ void dsyr2_mv_dlarfg_kernel(int n,
   __syncthreads();
   alphar = alpha_s;
   rsum = 0.0 /*_8*/;
-  nb = ceiling((float((n - 1)) / blockDim.x * blockDim.y));
+  nb = ceil((float((n - 1)) / blockDim.x * blockDim.y));
   // ! number of blocks down column
   i = tid;
   for (int j = 1; j <= nb; j += 1) {
@@ -1386,15 +1386,17 @@ finish_w_col_kernel(int n, double tau, double *x, const int x_n1, const int x_lb
   double mytau;
   // ! TODO could not parse:        real(8), shared                              :: alphar
   // !real(8), shared                              :: alpha
+  __shared__ double alphar;
   double alpha;
-  tid = threadIdx.x;
-  laneid = iand(tid, 31);
+  tid = threadIdx.x + 1;
+  laneid = tid & 31;
   if ((tid == 1)) {
     alphar = 0.0 /*_8*/;
   }
-  __syncthreads() rsum = 0.0 /*_8*/;
+  __syncthreads(); 
+  rsum = 0.0 /*_8*/;
   mytau = tau;
-  nb = ceiling((make_float(n) / blockDim.x));
+  nb = ceil((float(n) / blockDim.x));
   // ! number of blocks down column
   i = tid;
   for (int j = 1; j <= nb; j += 1) {
@@ -1423,7 +1425,8 @@ finish_w_col_kernel(int n, double tau, double *x, const int x_n1, const int x_lb
   if ((laneid == 1)) {
     istat = atomicAdd(alphar, rv1);
   }
-  __syncthreads() alpha = (-0.5e0 * mytau * alphar);
+  __syncthreads(); 
+  alpha = (-0.5e0 * mytau * alphar);
   for (int i = tid; i <= n; i += blockDim.x) {
     y[_idx_y(i)] = (mytau * y[_idx_y(i)] + alpha * x[_idx_x(i)]);
     // !daxpy
@@ -1643,7 +1646,7 @@ __global__ void stacked_dgemv_n_finish_w(int m,
   }
   __syncthreads() rsum = 0.0 /*_8*/;
   mytau = tau;
-  nb = ceiling((make_float(m) / (blockDim.x * blockDim.y)));
+  nb = ceil((make_float(m) / (blockDim.x * blockDim.y)));
   // ! number of blocks down column
   i = tid;
   for (int j = 1; j <= nb; j += 1) {
