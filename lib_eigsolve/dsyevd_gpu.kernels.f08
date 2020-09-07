@@ -231,18 +231,18 @@ module dsyevd_gpu_kernels
       use iso_c_binding
       use hip
       implicit none
-      type(dim3,,intent(IN, :: grid
-      type(dim3,,intent(IN, :: block
-      integer(c_int,,intent(IN, :: sharedMem
-      type(c_ptr,,value,intent(IN, :: stream
+      type(dim3),intent(IN) :: grid
+      type(dim3),intent(IN) :: block
+      integer(c_int),intent(IN) :: sharedMem
+      type(c_ptr),value,intent(IN) :: stream
       INTEGER(kind=),value :: n
       INTEGER(kind=),value :: ldt
-      type(c_ptr),value :: _t
+      type(c_ptr),value :: t
       integer(c_int),value,intent(IN) :: t_n1
       integer(c_int),value,intent(IN) :: t_n2
       integer(c_int),value,intent(IN) :: t_lb1
       integer(c_int),value,intent(IN) :: t_lb2
-      type(c_ptr),value :: _tau
+      type(c_ptr),value :: tau
       integer(c_int),value,intent(IN) :: tau_n1
       integer(c_int),value,intent(IN) :: tau_lb1
     end subroutine
