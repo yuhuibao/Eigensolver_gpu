@@ -145,8 +145,7 @@ contains
       if (N > 1) then
          iw = nb
          ! Generate elementary reflector H(i) to annihilate A(1:i-2, i)
-         call dlarfg_kernel<<<1, threads>>>(N - 1, e(N - 1), A(1, N), tau(N - 1))
-
+         CALL launch_dlarfg_kernel(1, threads, 0, c_null_ptr,N - 1, e(N - 1), A(1, N), tau(N - 1))
          ! extracted to HIP C++ file
          ! TODO(gpufort) fix arguments
          CALL launch_krnl_37a79c_1_auto(0, c_null_ptr, w, w_n1, w_n2, w_lb1, w_lb2, n, iw)
