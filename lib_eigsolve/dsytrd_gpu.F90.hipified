@@ -153,7 +153,7 @@ contains
          blocks2D = dim3(10, ceiling(real(N - 1)/32), 1) !JR TODO: What is optimal number of columns for our problem size?
          CALL launch_dsymv_gpu(blocks2D, threads2D, 0, hipDefaultStream, N-1, A, lda, A(1, N), W(1, iw))
 
-         call finish_W_col_kernel<<<1, threads>>>(N - 1, tau(N - 1), A(1, N), W(1, iw))
+         CALL launch_finish_W_col_kernel(1, threads,0, c_null_ptr, N - 1, tau(N - 1), A(1, N), W(1, iw))
       endif
 
       do i = N - 1, N - nb + 1, -1
