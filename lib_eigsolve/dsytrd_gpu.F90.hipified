@@ -151,7 +151,7 @@ contains
          CALL launch_krnl_37a79c_1_auto(0, c_null_ptr, w, w_n1, w_n2, w_lb1, w_lb2, n, iw)
 
          blocks2D = dim3(10, ceiling(real(N - 1)/32), 1) !JR TODO: What is optimal number of columns for our problem size?
-         CALL launch_dsymv_gpu(blocks2D, threads2D, 0, hipDefaultStream, N-1, A, lda, A(1, N), W(1, iw))
+         CALL launch_dsymv_gpu(blocks2D, threads2D, 0, hipDefaultStream, N-1, lda,A, a_n1, a_n2, a_lb1, a_lb2, A(1, N), a_n2, a_lb2, W(1, iw),iw, w_lb2)
 
          CALL launch_finish_W_col_kernel(1, threads,0, c_null_ptr, N - 1, tau(N - 1), A(1, N),a_n2, a_lb2, W(1, iw), iw, w_lb2)
       endif
