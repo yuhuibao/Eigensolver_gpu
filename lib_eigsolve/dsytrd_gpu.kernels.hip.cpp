@@ -170,7 +170,7 @@ extern "C" void launch_krnl_37a79c_1_auto(const int sharedMem,
                                           const int w_lb2,
                                           int n,
                                           int iw) {
-  const unsigned int krnl_37a79c_1_NX = (n - 1);
+  const unsigned int krnl_37a79c_1_NX = n;
 
   const unsigned int krnl_37a79c_1_blockX = 256;
 
