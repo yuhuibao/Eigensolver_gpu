@@ -457,15 +457,18 @@ __global__ void dlarfg_kernel(int n, double tau, double e, double *x, const int 
   double rsum;
   // ! TODO could not parse:        real(8), shared                  :: xnorm
   // ! TODO could not parse:        real(8), shared                  :: alpha_s
-  tid = threadIdx.x;
-  laneid = iand(tid, 31);
+  __shared__ double xnorm;
+  __shared__ double alpha_s;
+  tid = threadIdx.x + 1;
+  laneid = tid & 31;
   if ((tid == 1)) {
     alpha_s = x[_idx_x(n)];
     xnorm = 0.0 /*_8*/;
   }
-  __syncthreads() alphar = alpha_s;
+  __syncthreads();
+  alphar = alpha_s;
   rsum = 0.0 /*_8*/;
-  nb = ceiling((make_float(n) / blockDim.x));
+  nb = ceiling((float(n) / blockDim.x));
   // ! number of blocks down column
   i = tid;
   for (int j = 1; j <= nb; j += 1) {
@@ -495,38 +498,41 @@ __global__ void dlarfg_kernel(int n, double tau, double e, double *x, const int 
   if ((laneid == 1)) {
     istat = atomicAdd(xnorm, rv1);
   }
-  __syncthreads() if ((xnorm == 0.0 /*_8*/)) {
-    if ((tid == 1)) {
+  __syncthreads();
+  if ((xnorm == 0.0 /*_8*/)) {
+    if ((tid == 0)) {
       tau = 0.0 /*_8*/;
     }
-  }
-  else if ((tid == 1)) {
-    xnorm = sqrt(xnorm);
-    rv1 = abs(alphar);
-    // ! not taking abs of xnorm
-    scal = max(rv1, xnorm);
-    scal2 = min(rv1, xnorm);
-    if ((scal2 == 0.0e0)) {
-      beta = -sign(scal, alphar);
+  } else {
+    if ((tid == 1)) {
+      xnorm = sqrt(xnorm);
+      rv1 = abs(alphar);
+      // ! not taking abs of xnorm
+      scal = max(rv1, xnorm);
+      scal2 = min(rv1, xnorm);
+      if ((scal2 == 0.0e0)) {
+        beta = -sign(scal, alphar);
 
-    } else {
-      beta = -sign((scal * sqrt(((1.0e0 + (scal2 / scal)) * *2))), alphar);
+      } else {
+        beta = -sign((scal * sqrt(pow((1.0e0 + (scal2 / scal)),2))), alphar);
+      }
+      tau = ((beta - alphar) / beta);
+      e = beta;
+      // ! store beta in e vector
+      alpha_s = (1.e0 / (alphar - beta));
+      // !scaling factor for dscal
     }
-    tau = ((beta - alphar) / beta);
-    e = beta;
-    // ! store beta in e vector
-    alpha_s = (1.e0 / (alphar - beta));
-    // !scaling factor for dscal
+    __syncthreads();
+    for (int i = tid; i <= n; i += blockDim.x) {
+      if ((i <= (n - 1))) {
+        x[_idx(i)] = (alpha_s * x[_idx(i)]);
+
+      } else if ((i == n)) {
+        x[_idx(i)] = 1.0 /*_8*/;
+      }
+
+    } // ! TODO could not parse:        endif
   }
-  __syncthreads() for (int i = tid; i <= n; i += blockDim.x) {
-    if ((i <= (n - 1))) {
-      x[_idx_x(i)] = (alpha_s * x[_idx_x(i)]);
-
-    } else if ((i == n)) {
-      x[_idx_x(i)] = 1.0 /*_8*/;
-    }
-
-  } // ! TODO could not parse:        endif
 }
 
 extern "C" void launch_dlarfg_kernel(dim3 *grid,
