@@ -254,14 +254,14 @@ __global__ void dsyr2_mv_kernel(int n,
   int j;
   int istat;
   double rv;
-  i = ((blockIdx.x - 1) * blockDim.x + threadIdx.x);
-  j = ((blockIdx.y - 1) * blockDim.y + threadIdx.y);
+  i = ((blockIdx.x) * blockDim.x + threadIdx.x) + 1;
+  j = ((blockIdx.y) * blockDim.y + threadIdx.y) + 1;
   if ((i <= n & j <= m)) {
     rv = (-w[_idx_w(n, j)] * v[_idx_v(i, j)] - v[_idx_v(n, j)] * w[_idx_w(i, j)]);
     // ! Update x
     istat = atomicAdd(x[_idx_x(i)], rv);
   }
-  if ((threadIdx.y == 1)) {
+  if ((threadIdx.y == 0)) {
     // ! Zero out column for zhemv call
     if ((i <= n)) {
       w2[_idx_w2(i, 1)] = 0;
