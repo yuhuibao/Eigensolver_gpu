@@ -1,0 +1,7 @@
+module dsytd2_gpu
+   use dsytd2_gpu_kernels
+contains
+   ! extracted to HIP C++ file
+
+end module dsytd2_gpu
+

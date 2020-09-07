@@ -1,0 +1,235 @@
+!
+! Copyright (c) 2016, NVIDIA CORPORATION. All rights reserved.
+!
+!
+! Permission is hereby granted, free of charge, to any person obtaining a
+! copy of this software and associated documentation files (the "Software"),
+! to deal in the Software without restriction, including without limitation
+! the rights to use, copy, modify, merge, publish, distribute, sublicense,
+! and/or sell copies of the Software, and to permit persons to whom the
+! Software is furnished to do so, subject to the following conditions:
+!
+! The above copyright notice and this permission notice shall be included in
+! all copies or substantial portions of the Software.
+!
+! THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+! IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+! FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+! THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+! LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+! FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+! DEALINGS IN THE SOFTWARE.
+!
+
+module dsyevd_gpu
+   use dsyevd_gpu_kernels
+   use hip
+   use iso_c_binding
+   use iso_c_binding_ext
+   use hipblas
+
+   implicit none
+
+contains
+
+   ! Custom dsyevd routine
+   subroutine dsyevd_gpu(jobz, uplo, il, iu, N, A, lda, Z, ldz, w, work, lwork, &
+                         work_h, lwork_h, iwork_h, liwork_h, Z_h, ldz_h, w_h, info)
+      use dsyevd_gpu_kernels
+      use dsytrd_gpu
+
+      use eigsolve_vars
+      use nvtx_inters
+      implicit none
+      character                                   :: uplo, jobz
+      integer                                     :: N, NZ, lda, lwork, istat, info
+      integer                                     :: lwork_h, liwork_h, ldz_h
+      integer                                     :: i, j, k, nb1, nb2, ib, mi, ldt, ldz, il, iu
+      type(c_ptr) :: work = c_null_ptr
+      integer(c_int) :: work_n1 = lwork, work_lb1 = 1
+      REAL(kind=8), dimension(1:lwork_h), target :: work_h
+
+      integer, dimension(1:liwork_h)              :: iwork_h
+
+      type(c_ptr) :: A = c_null_ptr
+      integer(c_int) :: A_n1 = lda, A_n2 = N, A_lb1 = 1, A_lb2 = 1
+      type(c_ptr) :: Z = c_null_ptr
+      integer(c_int) :: Z_n1 = lda, Z_n2 = N, Z_lb1 = 1, Z_lb2 = 1
+      type(c_ptr) :: Z_h = c_null_ptr
+      integer(c_int) :: Z_h_n1 = ldz_h, Z_h_n2 = N, Z_h_lb1 = 1, Z_h_lb2 = 1
+      type(c_ptr) :: w = c_null_ptr
+      integer(c_int) :: w_n1 = N, w_lb1 = 1
+      type(c_ptr) :: w_h = c_null_ptr
+      integer(c_int) :: w_h_n1 = N, w_h_lb1 = 1
+
+      integer                                     :: inde, indtau, indwrk, llwork, llwork_h, indwk2, indwk3, llwrk2
+      real(8), parameter                          :: one = 1.0_8
+
+      type(dim3) :: blocks, threads
+
+      if (uplo .ne. 'U' .or. jobz .ne. 'V') then
+         print *, "Provided itype/uplo not supported!"
+         return
+      endif
+
+      nb1 = 32 ! Blocksize for tridiagonalization
+      nb2 = min(64, N) ! Blocksize for rotation procedure, fixed at 64
+      ldt = nb2
+      NZ = iu - il + 1
+
+      inde = 1
+      indtau = inde + n
+      indwrk = indtau + n
+      llwork = lwork - indwrk + 1
+      llwork_h = lwork_h - indwrk + 1
+      indwk2 = indwrk + (nb2)*(nb2)
+      indwk3 = indwk2 + (nb2)*(nb2)
+
+      !JR Note: ADD SCALING HERE IF DESIRED. Not scaling for now.
+
+      ! Call DSYTRD to reduce A to tridiagonal form
+      call nvtxStartRange("dytrd", 0)
+      call dsytrd_gpu('U', N, A, lda, w, work(inde), work(indtau), work(indwrk), llwork, nb1)
+      call nvtxEndRange
+
+      ! Copy diagonal and superdiagonal to CPU
+#undef _idx_w
+#define _idx_w(a) ((a-(w_lb1)))
+#undef _idx_work
+#define _idx_work(a) ((a-(work_lb1)))
+      hipMemcpy(c_loc(w_h(1:N)), inc_c_ptr(w, _idx_w(1:N)*(8)), 1_8*(8)*(N),) hipMemcpy(c_loc(work_h(inde:(inde + N - 1))), inc_c_ptr(work, _idx_work(inde:(inde + N - 1))*(8)), 1_8*(8)*((inde + N - 1) - (inde) + 1),)
+
+      ! Restore lower triangular of A (works if called from zhegvd only!)
+      ! extracted to HIP C++ file
+      ! TODO(gpufort) fix arguments
+      CALL launch_krnl_e26a05_0_auto(0, c_null_ptr, z, z_n1, z_n2, z_lb1, z_lb2, n, a, a_n1, a_n2, a_lb1, a_lb2)
+
+      ! Call DSTEDC to get eigenvalues/vectors of tridiagonal A on CPU
+      call nvtxStartRange("dstedc", 1)
+      call dstedc('I', N, w_h, work_h(inde), Z_h, ldz_h, work_h(indwrk), llwork_h, iwork_h, liwork_h, istat)
+      if (istat /= 0) then
+         write (*, *) "dsyevd_gpu error: dstedc failed!"
+         info = -1
+         return
+      endif
+      call nvtxEndRange
+
+      ! Copy eigenvectors and eigenvalues to GPU
+#undef _idx_Z
+#define _idx_Z(a,b) ((a-(Z_lb1))+Z_n1*(b-(Z_lb2)))
+#undef _idx_w
+#define _idx_w(a) ((a-(w_lb1)))
+      istat = hipMemcpy2D(inc_c_ptr(Z, _idx_Z(1, 1)*(8)), 1_8*(ldz)*(8), c_loc(Z_h), 1_8*(ldz_h)*(8), 1_8*(N)*(8), 1_8*(NZ)*(1), hipMemcpyHostToDevice)
+      hipMemcpy(inc_c_ptr(w, _idx_w(1:N)*(8)), c_loc(w_h(1:N)), 1_8*(8)*(N),)
+
+      !! Call DORMTR to rotate eigenvectors to obtain result for original A matrix
+      !! JR Note: Eventual function calls from DORMTR called directly here with associated indexing changes
+      call nvtxStartRange("dormtr", 2)
+
+      istat = hipEventRecord(event2, stream2)
+
+      k = N - 1
+
+      do i = 1, k, nb2
+         ib = min(nb2, k - i + 1)
+
+         ! Form block reflector T in stream 1
+         call dlarft_gpu(i + ib - 1, ib, A(1, 2 + i - 1), lda, work(indtau + i - 1), work(indwrk), ldt, work(indwk2), ldt)
+
+         mi = i + ib - 1
+         ! Apply reflector to eigenvectors in stream 2
+         call dlarfb_gpu(mi, NZ, ib, A(1, 2 + i - 1), lda, work(indwrk), ldt, Z, ldz, work(indwk3), N, work(indwk2), ldt)
+      end do
+
+      call nvtxEndRange
+
+   end subroutine dsyevd_gpu
+
+   subroutine dlarft_gpu(N, K, V, ldv, tau, T, ldt, W, ldw)
+      use dsyevd_gpu_kernels
+      use hipblas
+
+      use eigsolve_vars
+      implicit none
+      integer                               :: N, K, ldv, ldt, ldw
+      type(c_ptr) :: V = c_null_ptr
+      integer(c_int) :: V_n1 = ldv, V_n2 = K, V_lb1 = 1, V_lb2 = 1
+      type(c_ptr) :: tau = c_null_ptr
+      integer(c_int) :: tau_n1 = K, tau_lb1 = 1
+      type(c_ptr) :: T = c_null_ptr
+      integer(c_int) :: T_n1 = ldt, T_n2 = K, T_lb1 = 1, T_lb2 = 1
+      type(c_ptr) :: W = c_null_ptr
+      integer(c_int) :: W_n1 = ldw, W_n2 = K, W_lb1 = 1, W_lb2 = 1
+
+      integer                               :: i, j, istat
+      type(dim3)                            :: threads
+
+      type(c_ptr) :: hipblasHandle = c_null_ptr
+
+      hipblasCreate(hipblasHandle)
+      istat = hipblasSetStream(hipblasHandle, cuHandle, stream1)
+
+      ! Prepare lower triangular part of block column for dsyrk call.
+      ! Requires zeros in lower triangular portion and ones on diagonal.
+      ! Store existing entries (excluding diagonal) in W
+      ! extracted to HIP C++ file
+      ! TODO(gpufort) fix arguments
+      CALL launch_krnl_b1f342_1_auto(0, stream1, w, w_n1, w_n2, w_lb1, w_lb2, n, v, v_n1, v_n2, v_lb1, v_lb2, k)
+
+      istat = hipEventRecord(event1, stream1)
+      istat = hipStreamWaitEvent(stream1, event2, 0)
+
+      ! Form preliminary T matrix
+      istat = hipblasdsyrk_v2(hipblasHandle, cuHandle, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_T, K, N, 1.0_8, V, ldv, 0.0_8, T, ldt)
+      hipblasDestroy(hipblasHandle)
+
+      ! Finish forming T
+      threads = dim3(64, 16, 1)
+      call finish_T_block_kernel<<<1, threads, 0, stream1>>>(K, T, ldt, tau)
+
+   end subroutine dlarft_gpu
+
+   subroutine dlarfb_gpu(M, N, K, V, ldv, T, ldt, C, ldc, work, ldwork, W, ldw)
+      use dsyevd_gpu_kernels
+      use hipblas
+
+      use eigsolve_vars
+      implicit none
+      integer                               :: M, N, K, ldv, ldt, ldc, ldw, ldwork, istat
+      integer                               :: i, j
+      type(c_ptr) :: V = c_null_ptr
+      integer(c_int) :: V_n1 = ldv, V_n2 = K, V_lb1 = 1, V_lb2 = 1
+      type(c_ptr) :: T = c_null_ptr
+      integer(c_int) :: T_n1 = ldt, T_n2 = K, T_lb1 = 1, T_lb2 = 1
+      type(c_ptr) :: W = c_null_ptr
+      integer(c_int) :: W_n1 = ldw, W_n2 = K, W_lb1 = 1, W_lb2 = 1
+      type(c_ptr) :: C = c_null_ptr
+      integer(c_int) :: C_n1 = ldc, C_n2 = N, C_lb1 = 1, C_lb2 = 1
+      type(c_ptr) :: work = c_null_ptr
+      integer(c_int) :: work_n1 = ldwork, work_n2 = K, work_lb1 = 1, work_lb2 = 1
+
+      type(c_ptr) :: hipblasHandle = c_null_ptr
+
+      hipblasCreate(hipblasHandle)
+      istat = hipblasSetStream(hipblasHandle, cuHandle, stream2)
+
+      istat = hipStreamWaitEvent(stream2, event1, 0)
+      istat = hipblasdgemm_v2(hipblasHandle, cuHandle, HIPBLAS_OP_T, HIPBLAS_OP_N, N, K, M, 1.0d0, C, ldc, v, ldv, 0.0d0, work, ldwork)
+      istat = hipStreamSynchronize(stream1)
+
+      istat = hipblasdtrmm_v2(hipblasHandle, cuHandle, HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_T, HIPBLAS_DIAG_NON_UNIT, N, K, 1.0d0, T, ldt, work, ldwork, work, ldwork)
+
+      istat = hipEventRecord(event2, stream2)
+      istat = hipblasdgemm_v2(hipblasHandle, cuHandle, HIPBLAS_OP_N, HIPBLAS_OP_T, M, N, K, -1.0d0, V, ldv, work, ldwork, 1.0d0, c, ldc)
+      hipblasDestroy(hipblasHandle)
+
+      ! Restore clobbered section of block column (except diagonal)
+      ! extracted to HIP C++ file
+      ! TODO(gpufort) fix arguments
+      CALL launch_krnl_b95769_2_auto(0, c_null_ptr, w, w_n1, w_n2, w_lb1, w_lb2, m, v, v_n1, v_n2, v_lb1, v_lb2, k)
+
+   end subroutine dlarfb_gpu
+
+   ! extracted to HIP C++ file
+
+end module dsyevd_gpu
