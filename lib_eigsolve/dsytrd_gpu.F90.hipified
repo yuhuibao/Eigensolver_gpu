@@ -112,7 +112,7 @@ contains
       use dsytrd_gpu_kernels
       use eigsolve_vars
 
-      use dsymv_gpu
+      use dsymv_gpu_kernels
       implicit none
       character                                  :: uplo
       integer                                    :: N, nb, lda, ldw, istat
@@ -151,7 +151,7 @@ contains
          CALL launch_krnl_37a79c_1_auto(0, c_null_ptr, w, w_n1, w_n2, w_lb1, w_lb2, n, iw)
 
          blocks2D = dim3(10, ceiling(real(N - 1)/32), 1) !JR TODO: What is optimal number of columns for our problem size?
-         CALL launch_dsymv_gpu(blocks2D, threads2D, 0, hipDefaultStream, N - 1, A, lda, A
+         CALL launch_dsymv_gpu(blocks2D, threads2D, 0, hipDefaultStream, N-1, A, lda, A(1, N), W(1, iw))
 
          call finish_W_col_kernel<<<1, threads>>>(N - 1, tau(N - 1), A(1, N), W(1, iw))
       endif
