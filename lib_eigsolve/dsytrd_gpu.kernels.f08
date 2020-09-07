@@ -188,10 +188,10 @@ module dsytrd_gpu_kernels
       use iso_c_binding
       use hip
       implicit none
-      type(dim3,,intent(IN, :: grid
-      type(dim3,,intent(IN, :: block
-      integer(c_int,,intent(IN, :: sharedMem
-      type(c_ptr,,value,intent(IN, :: stream
+      type(dim3),intent(IN) :: grid
+      type(dim3),intent(IN) :: block
+      integer(c_int),intent(IN) :: sharedMem
+      type(c_ptr),value,intent(IN) :: stream
       INTEGER(kind=),value :: n
       REAL(kind=8),value :: tau
       REAL(kind=8),value :: e
