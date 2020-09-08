@@ -76,7 +76,6 @@ contains
       use dsygvdx_gpu_kernels
       use eigsolve_vars
 
-      use nvtx_inters
       use dsygst_gpu
       use dsyevd_gpu
       implicit none
@@ -134,10 +133,8 @@ contains
       if (initialized == 0) call init_eigsolve_gpu
 
       ! Compute cholesky factorization of B
-      call nvtxStartRange("cusolverdnDpotrf", 0)
       istat = cusolverDnDpotrf(cusolverHandle, HIPBLAS_FILL_modE_UPPER, N, B, ldb, work, lwork, devInfo_d)
       istat = devInfo_d
-      call nvtxEndRange
       if (istat .ne. 0) then
          print *, "dsygvdx_gpu error: cusolverDnDpotrf failed!"
          info = -1
@@ -151,23 +148,17 @@ contains
 
       ! Reduce to standard eigenproblem
       nb = 448
-      call nvtxStartRange("dsygst_gpu", 1)
       call dsygst_gpu(1, 'U', N, A, lda, B, ldb, nb)
-      call nvtxEndRange
 
       ! Tridiagonalize and compute eigenvalues/vectors
-      call nvtxStartRange("dsyevd_gpu", 2)
       call dsyevd_gpu('V', 'U', il, iu, N, A, lda, Z, ldz, w, work, lwork, &
                       work_h, lwork_h, iwork_h, liwork_h, Z_h, ldz_h, w_h, info)
-      call nvtxEndRange
 
       ! Triangle solve to get eigenvectors for original general eigenproblem
-      call nvtxStartRange("cublasDtrsm", 3)
       hipblasCreate(hipblasHandle)
       call hipblasDtrsm(hipblasHandle, L, U, HIPBLAS_OP_N, HIPBLAS_OP_N, N, (iu - il + 1), one, B, ldb, Z, ldz)
       hipblasDestroy(hipblasHandle)
 
-      call nvtxEndRange
 
       ! Copy final eigenvectors to host
       if (not(skip_host_copy)) then
