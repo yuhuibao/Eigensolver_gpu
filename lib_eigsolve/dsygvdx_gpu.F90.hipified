@@ -133,6 +133,8 @@ contains
       if (initialized == 0) call init_eigsolve_gpu
 
       ! Compute cholesky factorization of B
+      ! 'L':only lower triangular part of A is processed, and replaced by lower triangular Cholesky factor L
+      ! 'U':only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U
       istat = cusolverDnDpotrf(cusolverHandle, HIPBLAS_FILL_modE_UPPER, N, B, ldb, work, lwork, devInfo_d)
       istat = devInfo_d
       if (istat .ne. 0) then
