@@ -95,10 +95,15 @@ contains
       ! Copy diagonal and superdiagonal to CPU
 #undef _idx_w
 #define _idx_w(a) ((a-(w_lb1)))
+#undef _idx_w_h
+#define _idx_w(a) ((a-(w_h_lb1)))
 #undef _idx_work
 #define _idx_work(a) ((a-(work_lb1)))
-      hipMemcpy(c_loc(w_h), inc_c_ptr(w, _idx_w(1:N)*(8)), 1_8*(8)*(N),) 
-      hipMemcpy(c_loc(work_h(inde:(inde + N - 1))), inc_c_ptr(work, _idx_work(inde:(inde + N - 1))*(8)), 1_8*(8)*((inde + N - 1) - (inde) + 1),)
+      !w_h(1:N) = w(1:N)
+      hipMemcpy(inc_c_ptr(w_h, _idx_w_h(1)*8), inc_c_ptr(w, _idx_w(1)*8), 1_8*(8)*(N),hipMemcpyHostToDevice) 
+      
+      !work_h(inde:inde+N-1) = work(inde:inde+N-1)
+      hipMemcpy(c_loc(work_h(inde)), inc_c_ptr(work, _idx_work(inde)*8), 1_8*(8)*((inde + N - 1) - (inde) + 1),hipMemcpyHostToDevice)
 
       ! Restore lower triangular of A (works if called from zhegvd only!)
       ! extracted to HIP C++ file
