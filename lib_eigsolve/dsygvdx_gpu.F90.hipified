@@ -156,7 +156,7 @@ contains
 
       ! Triangle solve to get eigenvectors for original general eigenproblem
       hipblasCreate(hipblasHandle)
-      call hipblasDtrsm(hipblasHandle, L, U, HIPBLAS_OP_N, HIPBLAS_OP_N, N, (iu - il + 1), one, B, ldb, Z, ldz)
+      call hipblasDtrsm(hipblasHandle, 'L', 'U', HIPBLAS_OP_N, HIPBLAS_OP_N, N, (iu - il + 1), one, B, ldb, Z, ldz)
       hipblasDestroy(hipblasHandle)
 
 
