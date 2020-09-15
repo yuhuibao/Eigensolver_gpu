@@ -162,13 +162,13 @@ contains
       use eigsolve_vars
       implicit none
       integer                               :: N, K, ldv, ldt, ldw
-      type(c_ptr) :: V = c_null_ptr
+      type(c_ptr) :: V
       integer(c_int) :: V_n1 = ldv, V_n2 = K, V_lb1 = 1, V_lb2 = 1
-      type(c_ptr) :: tau = c_null_ptr
+      type(c_ptr) :: tau
       integer(c_int) :: tau_n1 = K, tau_lb1 = 1
-      type(c_ptr) :: T = c_null_ptr
+      type(c_ptr) :: T
       integer(c_int) :: T_n1 = ldt, T_n2 = K, T_lb1 = 1, T_lb2 = 1
-      type(c_ptr) :: W = c_null_ptr
+      type(c_ptr) :: W 
       integer(c_int) :: W_n1 = ldw, W_n2 = K, W_lb1 = 1, W_lb2 = 1
 
       integer                               :: i, j, istat
@@ -177,7 +177,7 @@ contains
       type(c_ptr) :: hipblasHandle = c_null_ptr
 
       hipblasCreate(hipblasHandle)
-      istat = hipblasSetStream(hipblasHandle, cuHandle, stream1)
+      istat = hipblasSetStream(hipblasHandle, stream1)
 
       ! Prepare lower triangular part of block column for dsyrk call.
       ! Requires zeros in lower triangular portion and ones on diagonal.
@@ -190,7 +190,7 @@ contains
       istat = hipStreamWaitEvent(stream1, event2, 0)
 
       ! Form preliminary T matrix
-      istat = hipblasdsyrk_v2(hipblasHandle, cuHandle, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_T, K, N, 1.0_8, V, ldv, 0.0_8, T, ldt)
+      istat = hipblasdsyrk_v2(hipblasHandle, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_T, K, N, 1.0_8, V, ldv, 0.0_8, T, ldt)
       hipblasDestroy(hipblasHandle)
 
       ! Finish forming T
@@ -206,30 +206,30 @@ contains
       implicit none
       integer                               :: M, N, K, ldv, ldt, ldc, ldw, ldwork, istat
       integer                               :: i, j
-      type(c_ptr) :: V = c_null_ptr
+      type(c_ptr) :: V 
       integer(c_int) :: V_n1 = ldv, V_n2 = K, V_lb1 = 1, V_lb2 = 1
-      type(c_ptr) :: T = c_null_ptr
+      type(c_ptr) :: T 
       integer(c_int) :: T_n1 = ldt, T_n2 = K, T_lb1 = 1, T_lb2 = 1
-      type(c_ptr) :: W = c_null_ptr
+      type(c_ptr) :: W 
       integer(c_int) :: W_n1 = ldw, W_n2 = K, W_lb1 = 1, W_lb2 = 1
-      type(c_ptr) :: C = c_null_ptr
+      type(c_ptr) :: C 
       integer(c_int) :: C_n1 = ldc, C_n2 = N, C_lb1 = 1, C_lb2 = 1
-      type(c_ptr) :: work = c_null_ptr
+      type(c_ptr) :: work 
       integer(c_int) :: work_n1 = ldwork, work_n2 = K, work_lb1 = 1, work_lb2 = 1
 
       type(c_ptr) :: hipblasHandle = c_null_ptr
 
       hipblasCreate(hipblasHandle)
-      istat = hipblasSetStream(hipblasHandle, cuHandle, stream2)
+      istat = hipblasSetStream(hipblasHandle, stream2)
 
       istat = hipStreamWaitEvent(stream2, event1, 0)
-      istat = hipblasdgemm_v2(hipblasHandle, cuHandle, HIPBLAS_OP_T, HIPBLAS_OP_N, N, K, M, 1.0d0, C, ldc, v, ldv, 0.0d0, work, ldwork)
+      istat = hipblasdgemm_v2(hipblasHandle, HIPBLAS_OP_T, HIPBLAS_OP_N, N, K, M, 1.0d0, C, ldc, v, ldv, 0.0d0, work, ldwork)
       istat = hipStreamSynchronize(stream1)
 
-      istat = hipblasdtrmm_v2(hipblasHandle, cuHandle, HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_T, HIPBLAS_DIAG_NON_UNIT, N, K, 1.0d0, T, ldt, work, ldwork, work, ldwork)
+      istat = hipblasdtrmm_v2(hipblasHandle,  HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_T, HIPBLAS_DIAG_NON_UNIT, N, K, 1.0d0, T, ldt, work, ldwork, work, ldwork)
 
       istat = hipEventRecord(event2, stream2)
-      istat = hipblasdgemm_v2(hipblasHandle, cuHandle, HIPBLAS_OP_N, HIPBLAS_OP_T, M, N, K, -1.0d0, V, ldv, work, ldwork, 1.0d0, c, ldc)
+      istat = hipblasdgemm_v2(hipblasHandle,  HIPBLAS_OP_N, HIPBLAS_OP_T, M, N, K, -1.0d0, V, ldv, work, ldwork, 1.0d0, c, ldc)
       hipblasDestroy(hipblasHandle)
 
       ! Restore clobbered section of block column (except diagonal)
