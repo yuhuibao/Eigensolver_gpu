@@ -96,7 +96,7 @@ contains
 #undef _idx_w
 #define _idx_w(a) ((a-(w_lb1)))
 #undef _idx_w_h
-#define _idx_w(a) ((a-(w_h_lb1)))
+#define _idx_w_h(a) ((a-(w_h_lb1)))
 #undef _idx_work
 #define _idx_work(a) ((a-(work_lb1)))
       !w_h(1:N) = w(1:N)
@@ -123,10 +123,14 @@ contains
       ! Copy eigenvectors and eigenvalues to GPU
 #undef _idx_Z
 #define _idx_Z(a,b) ((a-(Z_lb1))+Z_n1*(b-(Z_lb2)))
+#undef _idx_Z_h
+#define _idx_Z_h(a,b) ((a-(Z_h_lb1))+Z_h_n1*(b-(Z_h_lb2)))
 #undef _idx_w
 #define _idx_w(a) ((a-(w_lb1)))
-      istat = hipMemcpy2D(inc_c_ptr(Z, _idx_Z(1, 1)*(8)), 1_8*(ldz)*(8), c_loc(Z_h), 1_8*(ldz_h)*(8), 1_8*(N)*(8), 1_8*(NZ)*(1), hipMemcpyHostToDevice)
-      hipMemcpy(inc_c_ptr(w, _idx_w(1:N)*(8)), c_loc(w_h(1:N)), 1_8*(8)*(N),)
+      !istat = cudaMemcpy2D(Z(1, 1), ldz, Z_h, ldz_h, N, NZ)
+      istat = hipMemcpy2D(inc_c_ptr(Z, _idx_Z(1, 1)*(8)), 1_8*(ldz)*(8), inc_c_ptr(Z_h, _idx_Z_h(1, 1)*(8)), 1_8*(ldz_h)*(8), 1_8*(N)*(8), 1_8*(NZ)*(1), hipMemcpyHostToDevice)
+      !w(1:N) = w_h(1:N)
+      hipMemcpy(inc_c_ptr(w, _idx_w(1)*(8)), inc_c_ptr(w_h, _idx_w_h(1)*8), 1_8*(8)*(N),hipMemcpyHostToDevice)
 
       !! Call DORMTR to rotate eigenvectors to obtain result for original A matrix
       !! JR Note: Eventual function calls from DORMTR called directly here with associated indexing changes
