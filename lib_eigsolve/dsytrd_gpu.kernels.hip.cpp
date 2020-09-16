@@ -182,156 +182,6 @@ extern "C" void launch_krnl_37a79c_1_auto(const int sharedMem,
 }
 // END krnl_37a79c_1
 
-// BEGIN dsyr2_mv_kernel
-/* Fortran original:
-      implicit none
-      integer, value                                      :: N, M, ldv, ldw, ldw2
-      real(8), dimension(1:ldv, 1:M), device, intent(in)  :: V
-      real(8), dimension(1:ldw, 1:M), device, intent(in)  :: W
-      real(8), dimension(1:ldw2, 2), device               :: W2
-      real(8), dimension(1:N), device                     :: x
-
-      integer                                             :: i, j, istat
-      real(8)                                             :: rv
-
-      i = (blockIdx%x - 1)*blockDim%x + threadIdx%x
-      j = (blockIdx%y - 1)*blockDim%y + threadIdx%y
-
-      if (i <= N .and. j <= M) then
-
-         rv = -W(N, j)*V(i, j) - V(N, j)*W(i, j)
-
-         ! Update x
-         istat = atomicadd(x(i), rv)
-      endif
-
-      if (threadIdx%y == 1) then
-         ! Zero out column for zhemv call
-         if (i <= N) W2(i, 1) = 0
-         ! Zero out workspace for intermediate zgemv results
-         if (i <= M) then
-            W2(N + i, 1) = 0
-            W2(N + i, 2) = 0
-         endif
-      endif
-
-
-*/
-
-__global__ void dsyr2_mv_kernel(int n,
-                                int m,
-                                int ldv,
-                                int ldw,
-                                int ldw2,
-                                double *v,
-                                const int v_n1,
-                                const int v_n2,
-                                const int v_lb1,
-                                const int v_lb2,
-                                double *w,
-                                const int w_n1,
-                                const int w_n2,
-                                const int w_lb1,
-                                const int w_lb2,
-                                double *w2,
-                                const int w2_n1,
-                                const int w2_n2,
-                                const int w2_lb1,
-                                const int w2_lb2,
-                                double *x,
-                                const int x_n1,
-                                const int x_lb1) {
-#undef _idx_v
-#define _idx_v(a, b) ((a - (v_lb1)) + v_n1 * (b - (v_lb2)))
-#undef _idx_w
-#define _idx_w(a, b) ((a - (w_lb1)) + w_n1 * (b - (w_lb2)))
-#undef _idx_w2
-#define _idx_w2(a, b) ((a - (w2_lb1)) + w2_n1 * (b - (w2_lb2)))
-#undef _idx_x
-#define _idx_x(a) ((a - (x_lb1)))
-
-  int i;
-  int j;
-  int istat;
-  double rv;
-  i = ((blockIdx.x) * blockDim.x + threadIdx.x) + 1;
-  j = ((blockIdx.y) * blockDim.y + threadIdx.y) + 1;
-  if ((i <= n & j <= m)) {
-    rv = (-w[_idx_w(n, j)] * v[_idx_v(i, j)] - v[_idx_v(n, j)] * w[_idx_w(i, j)]);
-    // ! Update x
-    istat = atomicAdd(x[_idx_x(i)], rv);
-  }
-  if ((threadIdx.y == 0)) {
-    // ! Zero out column for zhemv call
-    if ((i <= n)) {
-      w2[_idx_w2(i, 1)] = 0;
-
-    } // ! Zero out workspace for intermediate zgemv results
-    if ((i <= m)) {
-      w2[_idx_w2((n + i), 1)] = 0;
-      w2[_idx_w2((n + i), 2)] = 0;
-    }
-  }
-}
-
-extern "C" void launch_dsyr2_mv_kernel(dim3 *grid,
-                                       dim3 *block,
-                                       const int sharedMem,
-                                       hipStream_t stream,
-                                       int n,
-                                       int m,
-                                       int ldv,
-                                       int ldw,
-                                       int ldw2,
-                                       double *v,
-                                       const int v_n1,
-                                       const int v_n2,
-                                       const int v_lb1,
-                                       const int v_lb2,
-                                       double *w,
-                                       const int w_n1,
-                                       const int w_n2,
-                                       const int w_lb1,
-                                       const int w_lb2,
-                                       double *w2,
-                                       const int w2_n1,
-                                       const int w2_n2,
-                                       const int w2_lb1,
-                                       const int w2_lb2,
-                                       double *x,
-                                       const int x_n1,
-                                       const int x_lb1) {
-  hipLaunchKernelGGL((dsyr2_mv_kernel),
-                     *grid,
-                     *block,
-                     sharedMem,
-                     stream,
-                     n,
-                     m,
-                     ldv,
-                     ldw,
-                     ldw2,
-                     v,
-                     v_n1,
-                     v_n2,
-                     v_lb1,
-                     v_lb2,
-                     w,
-                     w_n1,
-                     w_n2,
-                     w_lb1,
-                     w_lb2,
-                     w2,
-                     w2_n1,
-                     w2_n2,
-                     w2_lb1,
-                     w2_lb2,
-                     x,
-                     x_n1,
-                     x_lb1);
-}
-// END dsyr2_mv_kernel
-
 // BEGIN dlarfg_kernel
 /* Fortran original:
       implicit none
@@ -1035,10 +885,10 @@ __global__ void stacked_dgemv_t(int m,
   double rv1;
   double rv2;
   double xr;
-  tx = threadIdx.x;
-  ty = threadIdx.y;
-  i = ((blockIdx.y - 1) * blockDim.y + ty);
-  j = ((blockIdx.x - 1) * blockDim.x + tx);
+  tx = threadIdx.x + 1;
+  ty = threadIdx.y + 1;
+  i = (blockIdx.y * blockDim.y + ty);
+  j = (blockIdx.x * blockDim.x + tx);
   // !if (i > 2*M .or. j > N) return
   if ((i > (2 * m))) {
     return;
@@ -1047,13 +897,15 @@ __global__ void stacked_dgemv_t(int m,
   if ((j > n)) {
     rv1 = 0.e0;
 
-  } else if ((i > m)) {
-    rv2 = w[_idx_w(j, (i - m))];
-
   } else {
-    rv2 = v[_idx_v(j, i)];
+    if ((i > m)) {
+      rv2 = w[_idx_w(j, (i - m))];
+
+    } else {
+      rv2 = v[_idx_v(j, i)];
+    }
+    rv1 = (rv2 * xr);
   }
-  rv1 = (rv2 * xr);
   // ! TODO could not parse:        endif
   // !Partial sum within warps using shuffle
   rv2 = __shfl_down(rv1, 1);
@@ -1134,164 +986,6 @@ extern "C" void launch_stacked_dgemv_t(dim3 *grid,
                      z2_lb1);
 }
 // END stacked_dgemv_t
-
-// BEGIN stacked_dgemv_n
-/* Fortran original:
-      use cudafor
-      implicit none
-      integer, value                                     :: M, N, ldv, ldw
-      real(8), dimension(ldv, N), device, intent(in)     :: V
-      real(8), dimension(ldw, N), device, intent(in)     :: W
-      real(8), dimension(N), device, intent(in)          :: z1, z2
-      real(8), dimension(M), device                      :: y
-
-      integer :: i, j, tx, ty, istat
-      real(8) :: rv1, rv2, xr
-
-      tx = threadIdx%x
-      ty = threadIdx%y
-
-      i = (blockIdx%x - 1)*blockDim%x + tx
-      j = (blockIdx%y - 1)*blockDim%y + ty
-
-      if (i > M .or. j > 2*N) return
-
-      if (j > N) then
-         xr = z2(j - N)
-         rv2 = V(i, j - N)
-      else
-         xr = z1(j)
-         rv2 = W(i, j)
-      endif
-
-      rv1 = -rv2*xr
-
-      istat = atomicadd(y(i), rv1)
-
-      return
-
-
-*/
-
-__global__ void stacked_dgemv_n(int m,
-                                int n,
-                                int ldv,
-                                int ldw,
-                                double *v,
-                                const int v_n1,
-                                const int v_n2,
-                                const int v_lb1,
-                                const int v_lb2,
-                                double *w,
-                                const int w_n1,
-                                const int w_n2,
-                                const int w_lb1,
-                                const int w_lb2,
-                                double *z1,
-                                const int z1_n1,
-                                const int z1_lb1,
-                                double *z2,
-                                const int z2_n1,
-                                const int z2_lb1,
-                                double *y,
-                                const int y_n1,
-                                const int y_lb1) {
-#undef _idx_v
-#define _idx_v(a, b) ((a - (v_lb1)) + v_n1 * (b - (v_lb2)))
-#undef _idx_w
-#define _idx_w(a, b) ((a - (w_lb1)) + w_n1 * (b - (w_lb2)))
-#undef _idx_z1
-#define _idx_z1(a) ((a - (z1_lb1)))
-#undef _idx_z2
-#define _idx_z2(a) ((a - (z2_lb1)))
-#undef _idx_y
-#define _idx_y(a) ((a - (y_lb1)))
-
-  int i;
-  int j;
-  int tx;
-  int ty;
-  int istat;
-  double rv1;
-  double rv2;
-  double xr;
-  tx = threadIdx.x;
-  ty = threadIdx.y;
-  i = ((blockIdx.x - 1) * blockDim.x + tx);
-  j = ((blockIdx.y - 1) * blockDim.y + ty);
-  if ((i > m | j > (2 * n))) {
-    return;
-  }
-  if ((j > n)) {
-    xr = z2[_idx_z2((j - n))];
-    rv2 = v[_idx_v(i, (j - n))];
-
-  } else {
-    xr = z1[_idx_z1(j)];
-    rv2 = w[_idx_w(i, j)];
-  }
-  rv1 = (-rv2 * xr);
-  istat = atomicAdd(y[_idx_y(i)], rv1);
-  return;
-}
-
-extern "C" void launch_stacked_dgemv_n(dim3 *grid,
-                                       dim3 *block,
-                                       const int sharedMem,
-                                       hipStream_t stream,
-                                       int m,
-                                       int n,
-                                       int ldv,
-                                       int ldw,
-                                       double *v,
-                                       const int v_n1,
-                                       const int v_n2,
-                                       const int v_lb1,
-                                       const int v_lb2,
-                                       double *w,
-                                       const int w_n1,
-                                       const int w_n2,
-                                       const int w_lb1,
-                                       const int w_lb2,
-                                       double *z1,
-                                       const int z1_n1,
-                                       const int z1_lb1,
-                                       double *z2,
-                                       const int z2_n1,
-                                       const int z2_lb1,
-                                       double *y,
-                                       const int y_n1,
-                                       const int y_lb1) {
-  hipLaunchKernelGGL((stacked_dgemv_n),
-                     *grid,
-                     *block,
-                     sharedMem,
-                     stream,
-                     m,
-                     n,
-                     ldv,
-                     ldw,
-                     v,
-                     v_n1,
-                     v_n2,
-                     v_lb1,
-                     v_lb2,
-                     w,
-                     w_n1,
-                     w_n2,
-                     w_lb1,
-                     w_lb2,
-                     z1,
-                     z1_n1,
-                     z1_lb1,
-                     z2,
-                     z2_n1,
-                     z2_lb1,
-                     y,
-                     y_n1,
-                     y_lb1);
-}
-// END stacked_dgemv_n
 
 // BEGIN finish_w_col_kernel
 /* Fortran original:
@@ -1610,19 +1304,18 @@ __global__ void stacked_dgemv_n_finish_w(int m,
   int tid;
   int laneid;
   int nb;
-  // ! TODO could not parse:        integer, shared :: nfinished
+  __shared__ int nfinished;
   double rv1;
   double rv2;
   double rsum;
   double xr;
   double mytau;
-  // ! TODO could not parse:        real(8), shared                              :: alphar
-  // !real(8), shared                              :: alpha
+  __shared__ double alphar;
   double alpha;
-  tx = threadIdx.x;
-  ty = threadIdx.y;
-  i = ((blockIdx.x - 1) * blockDim.x + tx);
-  j = ((blockIdx.y - 1) * blockDim.y + ty);
+  tx = threadIdx.x + 1;
+  ty = threadIdx.y + 1;
+  i = (blockIdx.x * blockDim.x + tx);
+  j = (blockIdx.y * blockDim.y + ty);
   nblocks = (gridDim.x * gridDim.y);
   if ((i <= m & j <= (2 * n))) {
     if ((j > n)) {
@@ -1636,17 +1329,25 @@ __global__ void stacked_dgemv_n_finish_w(int m,
     rv1 = (-rv2 * xr);
     istat = atomicAdd(y[_idx_y(i)], rv1);
   }
-  threadfence() nfinished = 0;
-  __syncthreads() if (((tx + ty) == 2)) { nfinished = atomicInc(finished, (nblocks - 1)); }
-  __syncthreads() if ((nfinished < (nblocks - 1))) { return; } // ! Begin finish_W_col work with last block
-  tid = (threadIdx.x + (threadIdx.y - 1) * blockDim.x);
-  laneid = iand(tid, 31);
+  __threadfence();
+  nfinished = 0;
+  __syncthreads();
+  if (((tx + ty) == 2)) {
+    nfinished = atomicInc(&finished, (nblocks - 1));
+  }
+  __syncthreads();
+  if ((nfinished < (nblocks - 1))) {
+    return;
+  }
+  tid = (threadIdx.x + (threadIdx.y) * blockDim.x) + 1;
+  laneid = tid & 31;
   if ((tid == 1)) {
     alphar = 0.0 /*_8*/;
   }
-  __syncthreads() rsum = 0.0 /*_8*/;
+  __syncthreads();
+  rsum = 0.0 /*_8*/;
   mytau = tau;
-  nb = ceil((make_float(m) / (blockDim.x * blockDim.y)));
+  nb = ceil((float(m) / (blockDim.x * blockDim.y)));
   // ! number of blocks down column
   i = tid;
   for (int j = 1; j <= nb; j += 1) {
@@ -1675,7 +1376,8 @@ __global__ void stacked_dgemv_n_finish_w(int m,
   if ((laneid == 1)) {
     istat = atomicAdd(alphar, rv1);
   }
-  __syncthreads() alpha = (-0.5e0 * mytau * alphar);
+  __syncthreads();
+  alpha = (-0.5e0 * mytau * alphar);
   for (int i = tid; i <= m; i += (blockDim.x * blockDim.y)) {
     y[_idx_y(i)] = (mytau * y[_idx_y(i)] + alpha * x[_idx_x(i)]);
     // !daxpy

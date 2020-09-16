@@ -249,6 +249,8 @@ __global__ void dsytd2_gpu(int lda,
 #define _idx_d(a) ((a - (d_lb1)))
 #undef _idx_e
 #define _idx_e(a) ((a - (e_lb1)))
+#undef _idx_a_s
+#define _idx_a_s(a, b) ((a - 1) + 32 * (b - 1))
 
   __shared__ double a_s[32][32]; /* Fortran qualifiers: SHARED */
   __shared__ double alpha;       /* Fortran qualifiers: SHARED */
@@ -267,128 +269,136 @@ __global__ void dsytd2_gpu(int lda,
   int i;
   int j;
   int ii;
-  tx = threadIdx.x;
-  ty = threadIdx.y;
+  tx = threadIdx.x + 1;
+  ty = threadIdx.y + 1;
   // ! Linear id of the thread (tx,ty)
   tl = (tx + blockDim.x * (ty - 1));
   // ! Load a_d in shared memory
   if ((tx <= n & ty <= n)) {
     a_s[_idx_a_s(tx, ty)] = a[_idx_a(tx, ty)];
   }
-  __syncthreads() // ! Symmetric matrix from upper triangular
-      if ((tx > ty)) {
+  __syncthreads(); // ! Symmetric matrix from upper triangular
+  if ((tx > ty)) {
     a_s[_idx_a_s(tx, ty)] = a_s[_idx_a_s(ty, tx)];
   }
-  __syncthreads() // ! For each column working backward
-                  // ! TODO could not parse:        do i = n - 1, 1, -1
-                  // ! Generate elementary reflector
-                  // ! Sum the vectors above the diagonal, only one warp active
-                  // ! Reduce in a warp
-      if ((tl <= 32)) {
-    if ((tl < i)) {
-      w = (a_s[_idx_a_s(tl, (i + 1))] * a_s[_idx_a_s(tl, (i + 1))]);
-
-    } else {
-      w = 0. /*_8*/;
-    }
-    xnorm = __shfl_down(w, 1);
-    w = (w + xnorm);
-    xnorm = __shfl_down(w, 2);
-    w = (w + xnorm);
-    xnorm = __shfl_down(w, 4);
-    w = (w + xnorm);
-    xnorm = __shfl_down(w, 8);
-    w = (w + xnorm);
-    xnorm = __shfl_down(w, 16);
-    w = (w + xnorm);
-  }
-  if ((tl == 1)) {
-    alpha = a_s[_idx_a_s(i, (i + 1))];
-    alphar = make_double(alpha);
-    xnorm = dsqrt[_idx_dsqrt(w)];
-    if ((xnorm == 0 /*_8*/)) {
-      // ! H=1
-      taui = 0. /*_8*/;
-      alpha = 1.e0;
-      // ! To prevent scaling by dscal in this case
-
-    } else {
-      // !Compute sqrt(alphar^2+xnorm^2) with  dlapy2(alphar,xnorm)
-      x = abs(alphar);
-      y = abs(xnorm);
-      w = max(x, y);
-      z = min(x, y);
-      if ((z == 0.e0)) {
-        beta = -sign(w, alphar);
+  __syncthreads(); // ! For each column working backward
+for (i = n - 1; i >= 1; i--) {
+    if ((tl <= 32)) {
+      if ((tl < i)) {
+        w = (a_s[_idx_a_s(tl, (i + 1))] * a_s[_idx_a_s(tl, (i + 1))]);
 
       } else {
-        beta = -sign((w * sqrt(((1.e0 + (z / w)) * *2))), alphar);
+        w = 0. /*_8*/;
       }
-      taui = ((beta - alphar) / beta);
-      alpha = (1.e0 / (alphar - beta));
-      // ! scale factor for dscal
+      xnorm = __shfl_down(w, 1);
+      w = (w + xnorm);
+      xnorm = __shfl_down(w, 2);
+      w = (w + xnorm);
+      xnorm = __shfl_down(w, 4);
+      w = (w + xnorm);
+      xnorm = __shfl_down(w, 8);
+      w = (w + xnorm);
+      xnorm = __shfl_down(w, 16);
+      w = (w + xnorm);
     }
-  }
-  __syncthreads() // ! dscal
-      if ((tl < i)) {
-    a_s[_idx_a_s(tl, (i + 1))] = (a_s[_idx_a_s(tl, (i + 1))] * alpha);
-  }
-  if ((tl == 1)) {
-    if ((xnorm != 0 /*_8*/)) {
-      alpha = beta;
-
-    } else {
+    if (tl == 1) {
       alpha = a_s[_idx_a_s(i, (i + 1))];
-      // ! reset alpha to original value
-    }
-    e[_idx_e(i)] = alpha;
-  }
-  // ! TODO could not parse:           if (taui .ne. (0.d0, 0.d0)) then
-  a_s[_idx_a_s(i, (i + 1))] = 1.e0;
-  __syncthreads() if ((tl <= i)) {
-    tau[_idx_tau(tl)] = 0.e0;
-    for (int j = 1; j <= i; j += 1) {
-      tau[_idx_tau(tl)] = (tau[_idx_tau(tl)] + taui * a_s[_idx_a_s(tl, j)] * a_s[_idx_a_s(j, (i + 1))]);
-    }
-  }
-  __syncthreads() if ((tl <= 32)) {
-    if ((tl <= i)) {
-      x = (-.5e0 * taui * tau[_idx_tau(tl)] * a_s[_idx_a_s(tl, (i + 1))]);
+      //alphar = make_double(alpha);
+      xnorm = sqrt(w);
+      if (xnorm == 0 /*_8*/) {
+        // ! H=1
+        taui = 0. /*_8*/;
+        alpha = 1.e0;
+        // ! To prevent scaling by dscal in this case
 
-    } else {
-      x = 0. /*_8*/;
+      } else {
+        // !Compute sqrt(alphar^2+xnorm^2) with  dlapy2(alphar,xnorm)
+        x = abs(alphar);
+        y = abs(xnorm);
+        w = max(x, y);
+        z = min(x, y);
+        if (z == 0.e0) {
+          beta = -sign(w, alphar);
+
+        } else {
+          beta = -sign((w * sqrt(pow((1.e0 + (z / w)),2))), alphar);
+        }
+        taui = ((beta - alphar) / beta);
+        alpha = (1.e0 / (alphar - beta));
+        // ! scale factor for dscal
+      }
     }
-    z = __shfl_xor(x, 1);
-    x = (x + z);
-    z = __shfl_xor(x, 2);
-    x = (x + z);
-    z = __shfl_xor(x, 4);
-    x = (x + z);
-    z = __shfl_xor(x, 8);
-    x = (x + z);
-    z = __shfl_xor(x, 16);
-    x = (x + z);
+    __syncthreads(); // ! dscal
+    if ((tl < i)) {
+      a_s[_idx_a_s(tl, (i + 1))] = (a_s[_idx_a_s(tl, (i + 1))] * alpha);
+    }
+    if (tl == 1) {
+      if ((xnorm != 0 /*_8*/)) {
+        alpha = beta;
+
+      } else {
+        alpha = a_s[_idx_a_s(i, (i + 1))];
+        // ! reset alpha to original value
+      }
+      e[_idx_e(i)] = alpha;
+    }
+    // ! TODO could not parse:           if (taui .ne. (0.d0, 0.d0)) then
+    if (taui != 0.e0) {
+      a_s[_idx_a_s(i, (i + 1))] = 1.e0;
+      __syncthreads();
+      if ((tl <= i)) {
+        tau[tl] = 0.e0;
+        for (int j = 1; j <= i; j += 1) {
+          tau[tl] = (tau[tl] +
+                     taui * a_s[_idx_a_s(tl, j)] * a_s[_idx_a_s(j, (i + 1))]);
+        }
+      }
+      __syncthreads();
+      if ((tl <= 32)) {
+        if ((tl <= i)) {
+          x = (-.5e0 * taui * tau[tl] * a_s[_idx_a_s(tl, (i + 1))]);
+
+        } else {
+          x = 0. /*_8*/;
+        }
+        z = __shfl_xor(x, 1);
+        x = (x + z);
+        z = __shfl_xor(x, 2);
+        x = (x + z);
+        z = __shfl_xor(x, 4);
+        x = (x + z);
+        z = __shfl_xor(x, 8);
+        x = (x + z);
+        z = __shfl_xor(x, 16);
+        x = (x + z);
+      }
+      __syncthreads();
+      if ((tl <= i)) {
+        tau[tl] = (tau[tl] + x * a_s[_idx_a_s(tl, (i + 1))]);
+      }
+      if (tl == 1) {
+        alpha = x;
+      }
+      __syncthreads();
+      if ((tx <= i & ty <= i)) {
+        a_s[_idx_a_s(tx, ty)] = (a_s[_idx_a_s(tx, ty)] -
+                                 a_s[_idx_a_s(tx, (i + 1))] * tau[_idx_tau(ty)] -
+                                 a_s[_idx_a_s(ty, (i + 1))] * tau[_idx_tau(tx)]);
+      }
+      __syncthreads(); // ! TODO could not parse:           endif
+    }
+    if (tl == 1) {
+      a_s[_idx_a_s(i, (i + 1))] = e[_idx_e(i)];
+      d[_idx_d((i + 1))] = a_s[_idx_a_s((i + 1), (i + 1))];
+      tau[_idx_tau(i)] = taui;
+    }
+    __syncthreads(); // ! TODO could not parse:        end do
   }
-  __syncthreads() if ((tl <= i)) { tau[_idx_tau(tl)] = (tau[_idx_tau(tl)] + x * a_s[_idx_a_s(tl, (i + 1))]); }
-  if ((tl == 1)) {
-    alpha = x;
-  }
-  __syncthreads() if ((tx <= i & ty <= i)) {
-    a_s[_idx_a_s(tx, ty)] =
-        (a_s[_idx_a_s(tx, ty)] - a_s[_idx_a_s(tx, (i + 1))] * tau[_idx_tau(ty)] - a_s[_idx_a_s(ty, (i + 1))] * tau[_idx_tau(tx)]);
-  }
-  __syncthreads() // ! TODO could not parse:           endif
-      if ((tl == 1)) {
-    a_s[_idx_a_s(i, (i + 1))] = e[_idx_e(i)];
-    d[_idx_d((i + 1))] = a_s[_idx_a_s((i + 1), (i + 1))];
-    tau[_idx_tau(i)] = taui;
-  }
-  __syncthreads() // ! TODO could not parse:        end do
-      if ((tl == 1)) {
+  if (tl == 1) {
     d[_idx_d(1)] = a_s[_idx_a_s(1, 1)];
   }
-  __syncthreads() // ! Back to device memory
-      if ((tx <= n & ty <= n)) {
+  __syncthreads(); // ! Back to device memory
+  if ((tx <= n & ty <= n)) {
     a[_idx_a(tx, ty)] = a_s[_idx_a_s(tx, ty)];
   }
 }
