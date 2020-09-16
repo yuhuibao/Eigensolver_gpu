@@ -116,64 +116,6 @@ module dsytrd_gpu_kernels
       INTEGER(kind=),value :: iw
     end subroutine
 
-    subroutine launch_dsyr2_mv_kernel(grid,&
-        block,&
-        sharedMem,&
-        stream,&
-        n,&
-        m,&
-        ldv,&
-        ldw,&
-        ldw2,&
-        v,&
-        v_n1,&
-        v_n2,&
-        v_lb1,&
-        v_lb2,&
-        w,&
-        w_n1,&
-        w_n2,&
-        w_lb1,&
-        w_lb2,&
-        w2,&
-        w2_n1,&
-        w2_n2,&
-        w2_lb1,&
-        w2_lb2,&
-        x,&
-        x_n1,&
-        x_lb1) bind(c, name="launch_dsyr2_mv_kernel")
-      use iso_c_binding
-      use hip
-      implicit none
-      type(dim3,,intent(IN, :: grid
-      type(dim3,,intent(IN, :: block
-      integer(c_int,,intent(IN, :: sharedMem
-      type(c_ptr,,value,intent(IN, :: stream
-      INTEGER(kind=),value :: n
-      INTEGER(kind=),value :: m
-      INTEGER(kind=),value :: ldv
-      INTEGER(kind=),value :: ldw
-      INTEGER(kind=),value :: ldw2
-      type(c_ptr),value :: _v
-      integer(c_int),value,intent(IN) :: v_n1
-      integer(c_int),value,intent(IN) :: v_n2
-      integer(c_int),value,intent(IN) :: v_lb1
-      integer(c_int),value,intent(IN) :: v_lb2
-      type(c_ptr),value :: _w
-      integer(c_int),value,intent(IN) :: w_n1
-      integer(c_int),value,intent(IN) :: w_n2
-      integer(c_int),value,intent(IN) :: w_lb1
-      integer(c_int),value,intent(IN) :: w_lb2
-      type(c_ptr),value :: _w2
-      integer(c_int),value,intent(IN) :: w2_n1
-      integer(c_int),value,intent(IN) :: w2_n2
-      integer(c_int),value,intent(IN) :: w2_lb1
-      integer(c_int),value,intent(IN) :: w2_lb2
-      type(c_ptr),value :: _x
-      integer(c_int),value,intent(IN) :: x_n1
-      integer(c_int),value,intent(IN) :: x_lb1
-    end subroutine
 
     subroutine launch_dlarfg_kernel(grid,&
         block,&
@@ -195,7 +137,7 @@ module dsytrd_gpu_kernels
       INTEGER(kind=),value :: n
       REAL(kind=8),value :: tau
       REAL(kind=8),value :: e
-      type(c_ptr),value :: _x
+      type(c_ptr),value :: x
       integer(c_int),value,intent(IN) :: x_n1
       integer(c_int),value,intent(IN) :: x_lb1
     end subroutine
@@ -233,31 +175,31 @@ module dsytrd_gpu_kernels
       use iso_c_binding
       use hip
       implicit none
-      type(dim3,,intent(IN, :: grid
-      type(dim3,,intent(IN, :: block
-      integer(c_int,,intent(IN, :: sharedMem
-      type(c_ptr,,value,intent(IN, :: stream
+      type(dim3),intent(IN) :: grid
+      type(dim3),intent(IN) :: block
+      integer(c_int),intent(IN) :: sharedMem
+      type(c_ptr),value,intent(IN) :: stream
       INTEGER(kind=),value :: n
       INTEGER(kind=),value :: m
       INTEGER(kind=),value :: ldv
       INTEGER(kind=),value :: ldw
       INTEGER(kind=),value :: ldw2
-      type(c_ptr),value :: _v
+      type(c_ptr),value :: v
       integer(c_int),value,intent(IN) :: v_n1
       integer(c_int),value,intent(IN) :: v_n2
       integer(c_int),value,intent(IN) :: v_lb1
       integer(c_int),value,intent(IN) :: v_lb2
-      type(c_ptr),value :: _w
+      type(c_ptr),value :: w
       integer(c_int),value,intent(IN) :: w_n1
       integer(c_int),value,intent(IN) :: w_n2
       integer(c_int),value,intent(IN) :: w_lb1
       integer(c_int),value,intent(IN) :: w_lb2
-      type(c_ptr),value :: _w2
+      type(c_ptr),value :: w2
       integer(c_int),value,intent(IN) :: w2_n1
       integer(c_int),value,intent(IN) :: w2_n2
       integer(c_int),value,intent(IN) :: w2_lb1
       integer(c_int),value,intent(IN) :: w2_lb2
-      type(c_ptr),value :: _x
+      type(c_ptr),value :: x
       integer(c_int),value,intent(IN) :: x_n1
       integer(c_int),value,intent(IN) :: x_lb1
       REAL(kind=8),value :: tau
@@ -295,93 +237,36 @@ module dsytrd_gpu_kernels
       use iso_c_binding
       use hip
       implicit none
-      type(dim3,,intent(IN, :: grid
-      type(dim3,,intent(IN, :: block
-      integer(c_int,,intent(IN, :: sharedMem
-      type(c_ptr,,value,intent(IN, :: stream
+      type(dim3),intent(IN) :: grid
+      type(dim3),intent(IN) :: block
+      integer(c_int),intent(IN) :: sharedMem
+      type(c_ptr),value,intent(IN) :: stream
       INTEGER(kind=),value :: m
       INTEGER(kind=),value :: n
       INTEGER(kind=),value :: ldv
       INTEGER(kind=),value :: ldw
-      type(c_ptr),value :: _v
+      type(c_ptr),value :: v
       integer(c_int),value,intent(IN) :: v_n1
       integer(c_int),value,intent(IN) :: v_n2
       integer(c_int),value,intent(IN) :: v_lb1
       integer(c_int),value,intent(IN) :: v_lb2
-      type(c_ptr),value :: _w
+      type(c_ptr),value :: w
       integer(c_int),value,intent(IN) :: w_n1
       integer(c_int),value,intent(IN) :: w_n2
       integer(c_int),value,intent(IN) :: w_lb1
       integer(c_int),value,intent(IN) :: w_lb2
-      type(c_ptr),value :: _x
+      type(c_ptr),value :: x
       integer(c_int),value,intent(IN) :: x_n1
       integer(c_int),value,intent(IN) :: x_lb1
-      type(c_ptr),value :: _z1
+      type(c_ptr),value :: z1
       integer(c_int),value,intent(IN) :: z1_n1
       integer(c_int),value,intent(IN) :: z1_lb1
-      type(c_ptr),value :: _z2
+      type(c_ptr),value :: z2
       integer(c_int),value,intent(IN) :: z2_n1
       integer(c_int),value,intent(IN) :: z2_lb1
     end subroutine
 
-    subroutine launch_stacked_dgemv_n(grid,&
-        block,&
-        sharedMem,&
-        stream,&
-        m,&
-        n,&
-        ldv,&
-        ldw,&
-        v,&
-        v_n1,&
-        v_n2,&
-        v_lb1,&
-        v_lb2,&
-        w,&
-        w_n1,&
-        w_n2,&
-        w_lb1,&
-        w_lb2,&
-        z1,&
-        z1_n1,&
-        z1_lb1,&
-        z2,&
-        z2_n1,&
-        z2_lb1,&
-        y,&
-        y_n1,&
-        y_lb1) bind(c, name="launch_stacked_dgemv_n")
-      use iso_c_binding
-      use hip
-      implicit none
-      type(dim3,,intent(IN, :: grid
-      type(dim3,,intent(IN, :: block
-      integer(c_int,,intent(IN, :: sharedMem
-      type(c_ptr,,value,intent(IN, :: stream
-      INTEGER(kind=),value :: m
-      INTEGER(kind=),value :: n
-      INTEGER(kind=),value :: ldv
-      INTEGER(kind=),value :: ldw
-      type(c_ptr),value :: _v
-      integer(c_int),value,intent(IN) :: v_n1
-      integer(c_int),value,intent(IN) :: v_n2
-      integer(c_int),value,intent(IN) :: v_lb1
-      integer(c_int),value,intent(IN) :: v_lb2
-      type(c_ptr),value :: _w
-      integer(c_int),value,intent(IN) :: w_n1
-      integer(c_int),value,intent(IN) :: w_n2
-      integer(c_int),value,intent(IN) :: w_lb1
-      integer(c_int),value,intent(IN) :: w_lb2
-      type(c_ptr),value :: _z1
-      integer(c_int),value,intent(IN) :: z1_n1
-      integer(c_int),value,intent(IN) :: z1_lb1
-      type(c_ptr),value :: _z2
-      integer(c_int),value,intent(IN) :: z2_n1
-      integer(c_int),value,intent(IN) :: z2_lb1
-      type(c_ptr),value :: _y
-      integer(c_int),value,intent(IN) :: y_n1
-      integer(c_int),value,intent(IN) :: y_lb1
-    end subroutine
+    
 
     subroutine launch_finish_w_col_kernel(grid,&
         block,&
@@ -398,16 +283,16 @@ module dsytrd_gpu_kernels
       use iso_c_binding
       use hip
       implicit none
-      type(dim3,,intent(IN, :: grid
-      type(dim3,,intent(IN, :: block
-      integer(c_int,,intent(IN, :: sharedMem
-      type(c_ptr,,value,intent(IN, :: stream
+      type(dim3),intent(IN) :: grid
+      type(dim3),intent(IN) :: block
+      integer(c_int),intent(IN) :: sharedMem
+      type(c_ptr),value,intent(IN) :: stream
       INTEGER(kind=),value :: n
       REAL(kind=8),value :: tau
-      type(c_ptr),value :: _x
+      type(c_ptr),value :: x
       integer(c_int),value,intent(IN) :: x_n1
       integer(c_int),value,intent(IN) :: x_lb1
-      type(c_ptr),value :: _y
+      type(c_ptr),value :: y
       integer(c_int),value,intent(IN) :: y_n1
       integer(c_int),value,intent(IN) :: y_lb1
     end subroutine
@@ -447,35 +332,35 @@ module dsytrd_gpu_kernels
       use iso_c_binding
       use hip
       implicit none
-      type(dim3,,intent(IN, :: grid
-      type(dim3,,intent(IN, :: block
-      integer(c_int,,intent(IN, :: sharedMem
-      type(c_ptr,,value,intent(IN, :: stream
+      type(dim3),intent(IN) :: grid
+      type(dim3),intent(IN) :: block
+      integer(c_int),intent(IN) :: sharedMem
+      type(c_ptr),value,intent(IN) :: stream
       INTEGER(kind=),value :: m
       INTEGER(kind=),value :: n
       INTEGER(kind=),value :: ldv
       INTEGER(kind=),value :: ldw
-      type(c_ptr),value :: _v
+      type(c_ptr),value :: v
       integer(c_int),value,intent(IN) :: v_n1
       integer(c_int),value,intent(IN) :: v_n2
       integer(c_int),value,intent(IN) :: v_lb1
       integer(c_int),value,intent(IN) :: v_lb2
-      type(c_ptr),value :: _w
+      type(c_ptr),value :: w
       integer(c_int),value,intent(IN) :: w_n1
       integer(c_int),value,intent(IN) :: w_n2
       integer(c_int),value,intent(IN) :: w_lb1
       integer(c_int),value,intent(IN) :: w_lb2
-      type(c_ptr),value :: _z1
+      type(c_ptr),value :: z1
       integer(c_int),value,intent(IN) :: z1_n1
       integer(c_int),value,intent(IN) :: z1_lb1
-      type(c_ptr),value :: _z2
+      type(c_ptr),value :: z2
       integer(c_int),value,intent(IN) :: z2_n1
       integer(c_int),value,intent(IN) :: z2_lb1
-      type(c_ptr),value :: _y
+      type(c_ptr),value :: y
       integer(c_int),value,intent(IN) :: y_n1
       integer(c_int),value,intent(IN) :: y_lb1
       REAL(kind=8),value :: tau
-      type(c_ptr),value :: _x
+      type(c_ptr),value :: x
       integer(c_int),value,intent(IN) :: x_n1
       integer(c_int),value,intent(IN) :: x_lb1
       INTEGER(kind=),value :: finished
