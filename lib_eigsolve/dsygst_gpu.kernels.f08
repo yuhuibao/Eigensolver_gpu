@@ -2,7 +2,6 @@
           
            
 module dsygst_gpu_kernels
-  use hip
   implicit none
 
  
@@ -26,13 +25,13 @@ module dsygst_gpu_kernels
       type(dim3),intent(IN) :: block
       integer(c_int),intent(IN) :: sharedMem
       type(c_ptr),value,intent(IN) :: stream
-      INTEGER(kind=),value :: kb
+      INTEGER(c_int),value :: kb
       type(c_ptr),value :: a
       integer(c_int),value,intent(IN) :: a_n1
       integer(c_int),value,intent(IN) :: a_n2
       integer(c_int),value,intent(IN) :: a_lb1
       integer(c_int),value,intent(IN) :: a_lb2
-      INTEGER(kind=),value :: k
+      INTEGER(c_int),value :: k
     end subroutine
 
     subroutine launch_krnl_afb01f_0_auto(sharedMem,&
@@ -49,54 +48,18 @@ module dsygst_gpu_kernels
       implicit none
       integer(c_int),intent(IN) :: sharedMem
       type(c_ptr),value,intent(IN) :: stream
-      INTEGER(kind=),value :: kb
+      INTEGER(c_int),value :: kb
       type(c_ptr),value :: a
       integer(c_int),value,intent(IN) :: a_n1
       integer(c_int),value,intent(IN) :: a_n2
       integer(c_int),value,intent(IN) :: a_lb1
       integer(c_int),value,intent(IN) :: a_lb2
-      INTEGER(kind=),value :: k
+      INTEGER(c_int),value :: k
     end subroutine
 
   end interface
 
-  contains
-
-    subroutine launch_krnl_afb01f_0_cpu(sharedMem,&
-        stream,&
-        kb,&
-        _a,&
-        a_n1,&
-        a_n2,&
-        a_lb1,&
-        a_lb2,&
-        k)
-      use iso_c_binding
-      use hip
-      implicit none
-      integer(c_int),intent(IN) :: sharedMem
-      type(c_ptr),value,intent(IN) :: stream
-      INTEGER(kind=),value :: kb
-      type(c_ptr),value :: _a
-      integer(c_int),value,intent(IN) :: a_n1
-      integer(c_int),value,intent(IN) :: a_n2
-      integer(c_int),value,intent(IN) :: a_lb1
-      integer(c_int),value,intent(IN) :: a_lb2
-      INTEGER(kind=),value :: k
-            real(8), 1:N)                ,target :: a(a_n1,a_n2)
-      INTEGER(kind=) :: i
-      INTEGER(kind=) :: j
-      CALL hipCheck(hipMemcpy(c_loc(a),_a,C_SIZEOF(a),hipMemcpyDeviceToHost))
-      do j = k, k + kb - 1
-      do i = k, k + kb - 1
-      if (j < i) then
-         A(i, j) = A(j, i)
-      endif
-      end do
-      end do
-      CALL hipCheck(hipMemcpy(_a,c_loc(a),C_SIZEOF(a),hipMemcpyHostToDevice))
-
-    end subroutine
+  
 
 
 end module dsygst_gpu_kernels

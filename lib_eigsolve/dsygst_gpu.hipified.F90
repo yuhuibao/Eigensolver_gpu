@@ -30,7 +30,7 @@ module dsygst_gpu
 contains
 
    ! dsygst completed in blocks, using 2 ztrsms to solve subblock problem on GPU
-   subroutine dsygst_gpu(itype, uplo, N, A, lda, B, ldb, nb)
+   subroutine dsygst_gpu_h(itype, uplo, N, A, lda, B, ldb, nb)
       use dsygst_gpu_kernels
       use eigsolve_vars
 
@@ -38,17 +38,23 @@ contains
       integer, intent(in)                                   :: itype, N, lda, ldb, nb
       character, intent(in)                                 :: uplo
       type(c_ptr) :: B 
-      integer(c_int) :: B_n1 = ldb, B_n2 = N, B_lb1 = 1, B_lb2 = 1
+      integer(c_int) :: B_n1, B_n2, B_lb1, B_lb2
       type(c_ptr) :: A 
-      integer(c_int) :: A_n1 = lda, A_n2 = N, A_lb1 = 1, A_lb2 = 1
+      integer(c_int) :: A_n1, A_n2, A_lb1, A_lb2
 
       real(8), parameter                                    :: one = 1.d0, half = 0.5d0
 
       integer                                               :: i, j
       integer                                               :: k, kb, istat
 
-      type(c_ptr) :: hipblasHandle = c_null_ptr
-
+      B_n1 = ldb
+      B_n2 = n
+      B_lb1 = 1
+      B_lb2 =1
+      a_n2 = n
+      a_lb1 = 1
+      a_lb2 =1
+      A_n1 = lda
       if (itype .ne. 1 .or. uplo .ne. 'U') then
          print *, "Provided itype/uplo not supported!"
          return
@@ -59,7 +65,6 @@ contains
       do k = 1, N, nb
          kb = min(N - k + 1, nb)
 
-         hipblasCreate(hipblasHandle)
          istat = hipblasSetStream(hipblasHandle, stream1)
 
          istat = hipStreamWaitEvent(stream1, event2, 0)
@@ -85,15 +90,14 @@ contains
 
             istat = hipEventRecord(event2, stream2)
 
-            istat = hipblasdgemm_v2(hipblasHandle, cuHandle, HIPBLAS_OP_N, HIPBLAS_OP_N, kb, (N - k - kb + 1), kb, -half, A(k, k), lda, B(k, (k + kb)), ldb, one, A(k, (k + kb)), lda)
+            istat = hipblasdgemm_v2(hipblasHandle, HIPBLAS_OP_N, HIPBLAS_OP_N, kb, (N - k - kb + 1), kb, -half, A(k, k), lda, B(k, (k + kb)), ldb, one, A(k, (k + kb)), lda)
 
-            istat = hipblasdtrsm_v2(hipblasHandle, cuHandle, HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_N, HIPBLAS_OP_N, kb, (N - k - kb + 1), one, B((k + kb), (k + kb)), ldb, A(k, (k + kb)), lda)
-            hipblasDestroy(hipblasHandle)
+            istat = hipblasdtrsm_v2(hipblasHandle, HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, HIPBLAS_OP_N, kb, N - k - kb + 1, one, B(k + kb, k + kb), ldb, A(k, k + kb), lda)
 
          end if
 
       end do
 
-   end subroutine dsygst_gpu
+   end subroutine dsygst_gpu_h
 
 end module dsygst_gpu
