@@ -252,7 +252,7 @@ __global__ void dsytd2_gpu(int lda,
 #undef _idx_a_s
 #define _idx_a_s(a, b) ((a - 1) + 32 * (b - 1))
 
-  __shared__ double a_s[32][32]; /* Fortran qualifiers: SHARED */
+  __shared__ double* a_s; /* Fortran qualifiers: SHARED */
   __shared__ double alpha;       /* Fortran qualifiers: SHARED */
   __shared__ double taui;        /* Fortran qualifiers: SHARED */
   double beta;
@@ -318,10 +318,18 @@ for (i = n - 1; i >= 1; i--) {
         w = max(x, y);
         z = min(x, y);
         if (z == 0.e0) {
-          beta = -sign(w, alphar);
-
+            if (alphar >= 0){
+                beta = -abs(w);
+            }else{
+                beta = abs(w);
+            }
         } else {
-          beta = -sign((w * sqrt(pow((1.e0 + (z / w)),2))), alphar);
+            if (alphar >=0){
+                beta = -abs(w * sqrt(pow((1.e0 + (z / w)),2)));
+            }else {
+
+          beta = abs(w * sqrt(pow((1.e0 + (z / w)),2)));
+            }
         }
         taui = ((beta - alphar) / beta);
         alpha = (1.e0 / (alphar - beta));

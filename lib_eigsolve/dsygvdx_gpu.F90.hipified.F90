@@ -26,7 +26,7 @@ module dsygvdx_gpu
    use iso_c_binding
    use iso_c_binding_ext
    use hipblas
-
+   use rocsolver
    implicit none
 
 contains
@@ -71,7 +71,7 @@ contains
    !     eigenvalues. This is a copy of the w array on the host.
    !   - info is an integer. info will equal zero if the function completes succesfully. Otherwise, there was an error.
    !
-   subroutine dsygvdx_gpu(N, A, lda, B, ldb, Z, ldz, il, iu, w, work, lwork, &
+   subroutine dsygvdx_gpu_h(N, A, lda, B, ldb, Z, ldz, il, iu, w, work, lwork, &
                           work_h, lwork_h, iwork_h, liwork_h, Z_h, ldz_h, w_h, info, _skip_host_copy)
       use dsygvdx_gpu_kernels
       use eigsolve_vars
@@ -172,6 +172,6 @@ contains
          endif
       endif
 
-   end subroutine dsygvdx_gpu
+   end subroutine dsygvdx_gpu_h
 
 end module dsygvdx_gpu

@@ -20,7 +20,115 @@
 ! FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 ! DEALINGS IN THE SOFTWARE.
 !
-
+module dsytd2_gpu_kernels
+    use hip
+    implicit none
+  
+   
+    interface
+  
+      subroutine launch_dsytd2_gpu(grid,&
+          block,&
+          sharedMem,&
+          stream,&
+          lda,&
+          a,&
+          a_n1,&
+          a_n2,&
+          a_lb1,&
+          a_lb2,&
+          tau,&
+          tau_n1,&
+          tau_lb1,&
+          d,&
+          d_n1,&
+          d_lb1,&
+          e,&
+          e_n1,&
+          e_lb1,&
+          n) bind(c, name="launch_dsytd2_gpu")
+        use iso_c_binding
+        use hip
+        implicit none
+        type(dim3),intent(IN) :: grid
+        type(dim3),intent(IN) :: block
+        integer(c_int),intent(IN) :: sharedMem
+        type(c_ptr),value,intent(IN) :: stream
+        INTEGER,value :: lda
+        type(c_ptr),value :: a
+        integer(c_int),value,intent(IN) :: a_n1
+        integer(c_int),value,intent(IN) :: a_n2
+        integer(c_int),value,intent(IN) :: a_lb1
+        integer(c_int),value,intent(IN) :: a_lb2
+        type(c_ptr),value :: tau
+        integer(c_int),value,intent(IN) :: tau_n1
+        integer(c_int),value,intent(IN) :: tau_lb1
+        type(c_ptr),value :: d
+        integer(c_int),value,intent(IN) :: d_n1
+        integer(c_int),value,intent(IN) :: d_lb1
+        type(c_ptr),value :: e
+        integer(c_int),value,intent(IN) :: e_n1
+        integer(c_int),value,intent(IN) :: e_lb1
+        INTEGER,value :: n
+      end subroutine
+  
+    end interface
+  
+    
+  
+  end module dsytd2_gpu_kernels
+  module dsymv_gpu_kernels
+    use hip
+    implicit none
+  
+   
+    interface
+  
+      subroutine launch_dsymv_gpu(grid,&
+          block,&
+          sharedMem,&
+          stream,&
+          n,&
+          lda,&
+          a,&
+          a_n1,&
+          a_n2,&
+          a_lb1,&
+          a_lb2,&
+          x,&
+          x_n1,&
+          x_lb1,&
+          y,&
+          y_n1,&
+          y_lb1) bind(c, name="launch_dsymv_gpu")
+        use iso_c_binding
+        use hip
+        implicit none
+        type(dim3),intent(IN) :: grid
+        type(dim3),intent(IN) :: block
+        integer(c_int),intent(IN) :: sharedMem
+        type(c_ptr),value,intent(IN) :: stream
+        INTEGER,value :: n
+        INTEGER,value :: lda
+        type(c_ptr),value :: a
+        integer(c_int),value,intent(IN) :: a_n1
+        integer(c_int),value,intent(IN) :: a_n2
+        integer(c_int),value,intent(IN) :: a_lb1
+        integer(c_int),value,intent(IN) :: a_lb2
+        type(c_ptr),value :: x
+        integer(c_int),value,intent(IN) :: x_n1
+        integer(c_int),value,intent(IN) :: x_lb1
+        type(c_ptr),value :: y
+        integer(c_int),value,intent(IN) :: y_n1
+        integer(c_int),value,intent(IN) :: y_lb1
+      end subroutine
+  
+    end interface
+  
+    
+  
+  
+  end module dsymv_gpu_kernels
 module dsytrd_gpu
    use dsytrd_gpu_kernels
    use hip
@@ -30,31 +138,42 @@ module dsytrd_gpu
 
 contains
 
-   subroutine dsytrd_gpu(uplo, N, A, lda, d, e, tau, work, lwork, nb)
+   subroutine dsytrd_gpu_h(uplo, N, A, lda, d, e, tau, work, lwork, nb)
       use dsytrd_gpu_kernels
       use eigsolve_vars
 
-      use dsytd2_gpu
+      use dsytd2_gpu_kernels
       implicit none
       character                                 :: uplo
       integer                                   :: N, lda, lwork, nb, nx, ldwork, istat
       integer                                   :: i, j, k, kk
       type(c_ptr) :: d
-      integer(c_int) :: d_n1 = N, d_lb1 = 1
+      integer(c_int) :: d_n1, d_lb1
       type(c_ptr) :: e
-      integer(c_int) :: e_n1 = (N - 1), e_lb1 = 1
+      integer(c_int) :: e_n1, e_lb1
       type(c_ptr) :: work
-      integer(c_int) :: work_n1 = lwork, work_lb1 = 1
+      integer(c_int) :: work_n1, work_lb1
       type(c_ptr) :: A 
-      integer(c_int) :: A_n1 = lda, A_n2 = N, A_lb1 = 1, A_lb2 = 1
+      integer(c_int) :: A_n1, A_n2, A_lb1, A_lb2
       type(c_ptr) :: tau 
-      integer(c_int) :: tau_n1 = (N - 1), tau_lb1 = 1
+      integer(c_int) :: tau_n1, tau_lb1
 
       real(8), parameter                        :: one = 1.0_8
-      type(dim3)                                :: threads
+      type(dim3)                                :: threads,grid
 
-      type(c_ptr) :: hipblasHandle = c_null_ptr
 
+      d_n1 = n
+      d_lb1 = 1
+      e_n1 = (N - 1)
+      e_lb1 = 1 
+      work_n1 = lwork
+      work_lb1 = 1
+      A_n1 = lda
+      A_n2 = N
+      A_lb1 = 1
+      A_lb2 = 1
+      tau_n1 = (N - 1)
+      tau_lb1 = 1
       if (uplo .ne. 'U') then
          print *, "Provided uplo type not supported!"
          return
@@ -67,17 +186,17 @@ contains
 
       ldwork = N
 
-      hipblasCreate(hipblasHandle)
       istat = hipblasSetStream(hipblasHandle, stream1)
 
       kk = N - ((N - 32)/nb)*nb
       k = N + 1
       do i = N - nb + 1, kk + 1, -nb
          ! Reduce columns i:i+nb-1 to tridiagonal form
-         call dlatrd_gpu(uplo, i + nb - 1, nb, A, lda, e, tau, work, ldwork)
+         call dlatrd_gpu(uplo, i + nb - 1, nb, A(1,1), lda, e, tau, work, ldwork)
 
          ! Update trailing submatrix
-         call hipblasdsyr2k(hipblasHandle, uplo, HIPBLAS_OP_N, (i - 1), nb, -one, A(1, i), lda, work, ldwork, one, a, lda)
+         istat = hipblasdsyr2k(hipblasHandle, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb, -one, A(1, i), lda, &
+         work, ldwork, one, a(1,1), lda)
 
          k = k - nb
 
@@ -89,23 +208,25 @@ contains
 
       if (nb > 0) then
          ! Reduce columns i:i+nb-1 to tridiagonal form
-         call dlatrd_gpu(uplo, i + nb - 1, nb, A, lda, e, tau, work, ldwork)
+         call dlatrd_gpu(uplo, i + nb - 1, nb, A(1,1), lda, e, tau, work, ldwork)
 
          ! Update trailing submatrix
-         call hipblasdsyr2k(hipblasHandle, uplo, HIPBLAS_OP_N, (i - 1), nb, -one, A(1, i), lda, work, ldwork, one, a, lda)
-         hipblasDestroy(hipblasHandle)
+         istat = hipblasdsyr2k(hipblasHandle, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb, -one, A(1, i), lda, &
+         work, ldwork, one, a(1,1), lda)
 
       endif
 
       ! Final block
       threads = dim3(32, 32, 1)
-      CALL launch_dsytd2_gpu(1, threads,0,c_null_ptr, lda,A,a_n1, a_n2, a_lb1, a_lb2, tau,tau_n1, tau_lb1,d,d_n1,d_lb1,e,e_n1,e_lb1,min(32, N))
+      grid = dim3(1,1,1)
+      CALL launch_dsytd2_gpu(grid, threads,0,c_null_ptr, lda,A(1,1),a_n1, a_n2, a_lb1, a_lb2, tau,tau_n1, tau_lb1,d,d_n1,d_lb1,e,&
+      e_n1,e_lb1,min(32, N))
       ! Copy superdiagonal back into A, store diagonal in d
       ! extracted to HIP C++ file
       ! TODO(gpufort) fix arguments
-      CALL launch_krnl_2b8e8f_0_auto(0, c_null_ptr, n, d, d_n1, d_lb1, a, a_n1, a_n2, a_lb1, a_lb2)
+      CALL launch_krnl_2b8e8f_0_auto(0, c_null_ptr, n, d, d_n1, d_lb1, a(1,1), a_n1, a_n2, a_lb1, a_lb2)
 
-   end subroutine dsytrd_gpu
+   end subroutine dsytrd_gpu_h
 
    subroutine dlatrd_gpu(uplo, N, nb, A, lda, e, tau, W, ldw)
       use dsytrd_gpu_kernels
@@ -118,18 +239,30 @@ contains
       integer                                    :: i, j, k, iw
       integer                                    :: blocks, threads
       type(c_ptr) :: A 
-      integer(c_int) :: A_n1 = lda, A_n2 = N, A_lb1 = 1, A_lb2 = 1
+      integer(c_int) :: A_n1, A_n2, A_lb1, A_lb2
       type(c_ptr) :: W 
-      integer(c_int) :: W_n1 = ldw, W_n2 = nb, W_lb1 = 1, W_lb2 = 1
+      integer(c_int) :: W_n1, W_n2, W_lb1, W_lb2
       type(c_ptr) :: tau 
-      integer(c_int) :: tau_n1 = (N - 1), tau_lb1 = 1
+      integer(c_int) :: tau_n1, tau_lb1
       type(c_ptr) :: e 
-      integer(c_int) :: e_n1 = (N - 1), e_lb1 = 1
+      integer(c_int) :: e_n1, e_lb1
 
       real(8), parameter                         :: one = 1.0d0, zero = 0.0d0, half = 0.5d0
 
       type(dim3)                                 :: threads2D, blocks2D
 
+      A_n1 = lda
+      A_n2 = N
+      A_lb1 = 1
+      A_lb2 = 1
+      W_n1 = ldw
+      W_n2 = nb
+      W_lb1 = 1
+      W_lb2 = 1
+      tau_n1 = (N - 1)
+      tau_lb1 = 1
+      e_n1 = (N - 1)
+      e_lb1 = 1
       if (uplo .ne. 'U') then
          print *, "Provided uplo type not supported!"
          return
@@ -159,7 +292,7 @@ contains
          iw = i - N + nb
 
          blocks2D = dim3(ceiling(real(max(i, N - i))/32), ceiling(real(N - i)/8), 1)
-         CALL launch_dsyr2_mv_dlarfg_kernel(blocks2D, threads2D, 0, hipDefaultStream, i, N - i, lda, ldw, ldw, A(1,i+1),a_n1,a_2,a_lb1,a_lb2,W(1, iw+1),w_n1,w_2,w_lb1,w_lb2,W(1, iw),w_n1,w_2,w_lb1,w_lb2, A(1,i),a_n2,a_lb2, e(i-1), tau(i-1), finished(1))
+         CALL launch_dsyr2_mv_dlarfg_kernel(blocks2D, threads2D, 0, hipDefaultStream, i, N - i, lda, ldw, ldw, A(1,i+1),a_n1,a_2,a_lb1,a_lb2,W(1, iw+1),w_n1,w_2,w_lb1,w_lb2,W(1, iw),w_n1,w_2,w_lb1,w_lb2, A(1,i),,, e(i-1), tau(i-1), finished(1))
 
          if (i > 1) then
             ! Generate elementary reflector H(i) to annihilate A(1:i-2, i)

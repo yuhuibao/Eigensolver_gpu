@@ -3,6 +3,7 @@
 #include "hip/hip_complex.h"
 #include "hip/hip_runtime.h"
 #include "hip/math_functions.h"
+#include "hip/device_functions.h"
 #include <cstdio>
 
 namespace {
@@ -64,15 +65,9 @@ hipDoubleComplex conj(hipDoubleComplex &z) { return hipConj(z); }
 // - Shared Memory: 0
 // - Stream: 0
 
-__global__ void krnl_2b8e8f_0(int n,
-                              double *d,
-                              const int d_n1,
-                              const int d_lb1,
-                              double *a,
-                              const int a_n1,
-                              const int a_n2,
-                              const int a_lb1,
-                              const int a_lb2) {
+__global__ void krnl_2b8e8f_0(int n, double *d, const int d_n1, const int d_lb1,
+                              double *a, const int a_n1, const int a_n2,
+                              const int a_lb1, const int a_lb2) {
 #undef _idx_d
 #define _idx_d(a) ((a - (d_lb1)))
 #undef _idx_a
@@ -85,41 +80,32 @@ __global__ void krnl_2b8e8f_0(int n,
   }
 }
 
-extern "C" void launch_krnl_2b8e8f_0(dim3 *grid,
-                                     dim3 *block,
-                                     const int sharedMem,
-                                     hipStream_t stream,
-                                     int n,
-                                     double *d,
-                                     const int d_n1,
-                                     const int d_lb1,
-                                     double *a,
-                                     const int a_n1,
-                                     const int a_n2,
-                                     const int a_lb1,
+extern "C" void launch_krnl_2b8e8f_0(dim3 *grid, dim3 *block,
+                                     const int sharedMem, hipStream_t stream,
+                                     int n, double *d, const int d_n1,
+                                     const int d_lb1, double *a, const int a_n1,
+                                     const int a_n2, const int a_lb1,
                                      const int a_lb2) {
-  hipLaunchKernelGGL((krnl_2b8e8f_0), *grid, *block, sharedMem, stream, n, d, d_n1, d_lb1, a, a_n1, a_n2, a_lb1, a_lb2);
+  hipLaunchKernelGGL((krnl_2b8e8f_0), *grid, *block, sharedMem, stream, n, d,
+                     d_n1, d_lb1, a, a_n1, a_n2, a_lb1, a_lb2);
 }
 extern "C" void launch_krnl_2b8e8f_0_auto(const int sharedMem,
-                                          hipStream_t stream,
-                                          int n,
-                                          double *d,
-                                          const int d_n1,
-                                          const int d_lb1,
-                                          double *a,
-                                          const int a_n1,
-                                          const int a_n2,
-                                          const int a_lb1,
+                                          hipStream_t stream, int n, double *d,
+                                          const int d_n1, const int d_lb1,
+                                          double *a, const int a_n1,
+                                          const int a_n2, const int a_lb1,
                                           const int a_lb2) {
   const unsigned int krnl_2b8e8f_0_NX = n;
 
   const unsigned int krnl_2b8e8f_0_blockX = 256;
 
-  const unsigned int krnl_2b8e8f_0_gridX = divideAndRoundUp(krnl_2b8e8f_0_NX, krnl_2b8e8f_0_blockX);
+  const unsigned int krnl_2b8e8f_0_gridX =
+      divideAndRoundUp(krnl_2b8e8f_0_NX, krnl_2b8e8f_0_blockX);
 
   dim3 grid(krnl_2b8e8f_0_gridX);
   dim3 block(krnl_2b8e8f_0_blockX);
-  hipLaunchKernelGGL((krnl_2b8e8f_0), grid, block, sharedMem, stream, n, d, d_n1, d_lb1, a, a_n1, a_n2, a_lb1, a_lb2);
+  hipLaunchKernelGGL((krnl_2b8e8f_0), grid, block, sharedMem, stream, n, d,
+                     d_n1, d_lb1, a, a_n1, a_n2, a_lb1, a_lb2);
 }
 // END krnl_2b8e8f_0
 
@@ -138,7 +124,8 @@ extern "C" void launch_krnl_2b8e8f_0_auto(const int sharedMem,
 // - Shared Memory: 0
 // - Stream: 0
 
-__global__ void krnl_37a79c_1(double *w, const int w_n1, const int w_n2, const int w_lb1, const int w_lb2, int n, int iw) {
+__global__ void krnl_37a79c_1(double *w, const int w_n1, const int w_n2,
+                              const int w_lb1, const int w_lb2, int n, int iw) {
 #undef _idx_w
 #define _idx_w(a, b) ((a - (w_lb1)) + w_n1 * (b - (w_lb2)))
 
@@ -148,37 +135,30 @@ __global__ void krnl_37a79c_1(double *w, const int w_n1, const int w_n2, const i
   }
 }
 
-extern "C" void launch_krnl_37a79c_1(dim3 *grid,
-                                     dim3 *block,
-                                     const int sharedMem,
-                                     hipStream_t stream,
-                                     double *w,
-                                     const int w_n1,
-                                     const int w_n2,
-                                     const int w_lb1,
-                                     const int w_lb2,
-                                     int n,
+extern "C" void launch_krnl_37a79c_1(dim3 *grid, dim3 *block,
+                                     const int sharedMem, hipStream_t stream,
+                                     double *w, const int w_n1, const int w_n2,
+                                     const int w_lb1, const int w_lb2, int n,
                                      int iw) {
-  hipLaunchKernelGGL((krnl_37a79c_1), *grid, *block, sharedMem, stream, w, w_n1, w_n2, w_lb1, w_lb2, n, iw);
+  hipLaunchKernelGGL((krnl_37a79c_1), *grid, *block, sharedMem, stream, w, w_n1,
+                     w_n2, w_lb1, w_lb2, n, iw);
 }
 extern "C" void launch_krnl_37a79c_1_auto(const int sharedMem,
-                                          hipStream_t stream,
-                                          double *w,
-                                          const int w_n1,
-                                          const int w_n2,
-                                          const int w_lb1,
-                                          const int w_lb2,
-                                          int n,
-                                          int iw) {
+                                          hipStream_t stream, double *w,
+                                          const int w_n1, const int w_n2,
+                                          const int w_lb1, const int w_lb2,
+                                          int n, int iw) {
   const unsigned int krnl_37a79c_1_NX = n;
 
   const unsigned int krnl_37a79c_1_blockX = 256;
 
-  const unsigned int krnl_37a79c_1_gridX = divideAndRoundUp(krnl_37a79c_1_NX, krnl_37a79c_1_blockX);
+  const unsigned int krnl_37a79c_1_gridX =
+      divideAndRoundUp(krnl_37a79c_1_NX, krnl_37a79c_1_blockX);
 
   dim3 grid(krnl_37a79c_1_gridX);
   dim3 block(krnl_37a79c_1_blockX);
-  hipLaunchKernelGGL((krnl_37a79c_1), grid, block, sharedMem, stream, w, w_n1, w_n2, w_lb1, w_lb2, n, iw);
+  hipLaunchKernelGGL((krnl_37a79c_1), grid, block, sharedMem, stream, w, w_n1,
+                     w_n2, w_lb1, w_lb2, n, iw);
 }
 // END krnl_37a79c_1
 
@@ -191,9 +171,9 @@ extern "C" void launch_krnl_37a79c_1_auto(const int sharedMem,
       real(8), dimension(N), device    :: x
 
       integer                          :: tid, i, j, nb, istat, laneID
-      real(8)                          :: rv1, rv2, rv3, scal, scal2, alphar, beta, rsum
-      real(8), shared                  :: xnorm
-      real(8), shared                  :: alpha_s
+      real(8)                          :: rv1, rv2, rv3, scal, scal2, alphar,
+   beta, rsum real(8), shared                  :: xnorm real(8), shared ::
+   alpha_s
 
       tid = threadIdx%x
       laneID = iand(tid, 31)
@@ -287,7 +267,8 @@ extern "C" void launch_krnl_37a79c_1_auto(const int sharedMem,
 
 */
 
-__global__ void dlarfg_kernel(int n, double tau, double e, double *x, const int x_n1, const int x_lb1) {
+__global__ void dlarfg_kernel(int n, double tau, double e, double *x,
+                              const int x_n1, const int x_lb1) {
 #undef _idx_x
 #define _idx_x(a) ((a - (x_lb1)))
 
@@ -311,7 +292,7 @@ __global__ void dlarfg_kernel(int n, double tau, double e, double *x, const int 
   __shared__ double alpha_s;
   tid = threadIdx.x + 1;
   laneid = tid & 31;
-  if ((tid == 1)) {
+  if (tid == 1) {
     alpha_s = x[_idx_x(n)];
     xnorm = 0.0 /*_8*/;
   }
@@ -345,26 +326,36 @@ __global__ void dlarfg_kernel(int n, double tau, double e, double *x, const int 
   rv1 = (rv1 + rv2);
   rv2 = __shfl_down(rv1, 16);
   rv1 = (rv1 + rv2);
-  if ((laneid == 1)) {
-    istat = atomicAdd(xnorm, rv1);
+  if (laneid == 1) {
+    istat = atomicAdd(&xnorm, rv1);
   }
   __syncthreads();
-  if ((xnorm == 0.0 /*_8*/)) {
-    if ((tid == 0)) {
+  if (xnorm == 0.0 /*_8*/) {
+    if (tid == 0) {
       tau = 0.0 /*_8*/;
     }
   } else {
-    if ((tid == 1)) {
+    if (tid == 1) {
       xnorm = sqrt(xnorm);
       rv1 = abs(alphar);
       // ! not taking abs of xnorm
       scal = max(rv1, xnorm);
       scal2 = min(rv1, xnorm);
-      if ((scal2 == 0.0e0)) {
-        beta = -sign(scal, alphar);
+      if (scal2 == 0.0e0) {
+        if (alphar >= 0) {
+          beta = -abs(scal);
+        } else {
+
+          beta = abs(scal);
+        }
 
       } else {
-        beta = -sign((scal * sqrt(pow((1.0e0 + (scal2 / scal)),2))), alphar);
+        if (alphar >= 0) {
+          beta = -abs(scal * sqrt(pow((1.0e0 + (scal2 / scal)), 2)));
+        } else {
+
+          beta = abs(scal * sqrt(pow((1.0e0 + (scal2 / scal)), 2)));
+        }
       }
       tau = ((beta - alphar) / beta);
       e = beta;
@@ -372,50 +363,42 @@ __global__ void dlarfg_kernel(int n, double tau, double e, double *x, const int 
       alpha_s = (1.e0 / (alphar - beta));
       // !scaling factor for dscal
     }
+
     __syncthreads();
     for (int i = tid; i <= n; i += blockDim.x) {
       if ((i <= (n - 1))) {
-        x[_idx(i)] = (alpha_s * x[_idx(i)]);
+        x[_idx_x(i)] = (alpha_s * x[_idx_x(i)]);
 
-      } else if ((i == n)) {
-        x[_idx(i)] = 1.0 /*_8*/;
+      } else if (i == n) {
+        x[_idx_x(i)] = 1.0 /*_8*/;
       }
 
     } // ! TODO could not parse:        endif
   }
 }
 
-extern "C" void launch_dlarfg_kernel(dim3 *grid,
-                                     dim3 *block,
-                                     const int sharedMem,
-                                     hipStream_t stream,
-                                     int n,
-                                     double tau,
-                                     double e,
-                                     double *x,
-                                     const int x_n1,
-                                     const int x_lb1) {
-  hipLaunchKernelGGL((dlarfg_kernel), *grid, *block, sharedMem, stream, n, tau, e, x, x_n1, x_lb1);
+extern "C" void launch_dlarfg_kernel(dim3 *grid, dim3 *block,
+                                     const int sharedMem, hipStream_t stream,
+                                     int n, double tau, double e, double *x,
+                                     const int x_n1, const int x_lb1) {
+  hipLaunchKernelGGL((dlarfg_kernel), *grid, *block, sharedMem, stream, n, tau,
+                     e, x, x_n1, x_lb1);
 }
 // END dlarfg_kernel
 
 // BEGIN dsyr2_mv_dlarfg_kernel
 /* Fortran original:
       implicit none
-      integer, value                                      :: N, M, ldv, ldw, ldw2
-      real(8), dimension(1:ldv, 1:M), device, intent(in)  :: V
-      real(8), dimension(1:ldw, 1:M), device, intent(in)  :: W
-      real(8), dimension(1:ldw2, 2), device               :: W2
-      real(8), dimension(1:N), device                     :: x
-      real(8), device                                     :: tau
-      real(8), device                                     :: e
+      integer, value                                      :: N, M, ldv, ldw,
+   ldw2 real(8), dimension(1:ldv, 1:M), device, intent(in)  :: V real(8),
+   dimension(1:ldw, 1:M), device, intent(in)  :: W real(8), dimension(1:ldw2,
+   2), device               :: W2 real(8), dimension(1:N), device :: x real(8),
+   device                                     :: tau real(8), device :: e
 
-      integer                                             :: i, j, tx, ty, tid, nb, laneid, istat, nBlocks
-      integer, device                                     :: finished
-      integer, shared                                     :: nFinished
-      real(8)                                             :: rv
-      real(8)                                             :: rv1, rv2, rv3, scal, scal2, alphar, beta, rsum
-      real(8), shared                                     :: xnorm
+      integer                                             :: i, j, tx, ty, tid,
+   nb, laneid, istat, nBlocks integer, device :: finished integer, shared ::
+   nFinished real(8)                                             :: rv real(8)
+   :: rv1, rv2, rv3, scal, scal2, alphar, beta, rsum real(8), shared :: xnorm
       real(8), shared                                     :: alpha_s
 
       tx = threadIdx%x
@@ -468,7 +451,8 @@ extern "C" void launch_dlarfg_kernel(dim3 *grid,
       alphar = alpha_s
       rsum = 0.0_8
 
-      nb = ceiling(real(N - 1)/blockDim%x*blockDim%y) ! number of blocks down column
+      nb = ceiling(real(N - 1)/blockDim%x*blockDim%y) ! number of blocks down
+   column
 
       i = tid
       do j = 1, nb
@@ -547,32 +531,13 @@ extern "C" void launch_dlarfg_kernel(dim3 *grid,
 
 */
 
-__global__ void dsyr2_mv_dlarfg_kernel(int n,
-                                       int m,
-                                       int ldv,
-                                       int ldw,
-                                       int ldw2,
-                                       double *v,
-                                       const int v_n1,
-                                       const int v_n2,
-                                       const int v_lb1,
-                                       const int v_lb2,
-                                       double *w,
-                                       const int w_n1,
-                                       const int w_n2,
-                                       const int w_lb1,
-                                       const int w_lb2,
-                                       double *w2,
-                                       const int w2_n1,
-                                       const int w2_n2,
-                                       const int w2_lb1,
-                                       const int w2_lb2,
-                                       double *x,
-                                       const int x_n1,
-                                       const int x_lb1,
-                                       double tau,
-                                       double e,
-                                       int finished) {
+__global__ void dsyr2_mv_dlarfg_kernel(
+    int n, int m, int ldv, int ldw, int ldw2, double *v, const int v_n1,
+    const int v_n2, const int v_lb1, const int v_lb2, double *w, const int w_n1,
+    const int w_n2, const int w_lb1, const int w_lb2, double *w2,
+    const int w2_n1, const int w2_n2, const int w2_lb1, const int w2_lb2,
+    double *x, const int x_n1, const int x_lb1, double tau, double e,
+    unsigned int finished) {
 #undef _idx_v
 #define _idx_v(a, b) ((a - (v_lb1)) + v_n1 * (b - (v_lb2)))
 #undef _idx_w
@@ -609,11 +574,12 @@ __global__ void dsyr2_mv_dlarfg_kernel(int n,
   j = ((blockIdx.y) * blockDim.y + ty);
   nblocks = (gridDim.x * gridDim.y);
   if ((i <= n & j <= m)) {
-    rv = (-w[_idx_w(n, j)] * v[_idx_v(i, j)] - v[_idx_v(n, j)] * w[_idx_w(i, j)]);
+    rv = (-w[_idx_w(n, j)] * v[_idx_v(i, j)] -
+          v[_idx_v(n, j)] * w[_idx_w(i, j)]);
     // ! Update x
-    istat = atomicAdd(x[_idx_x(i)], rv);
+    istat = atomicAdd(x+_idx_x(i)*8, rv);
   }
-  if ((ty == 1)) {
+  if (ty == 1) {
     // ! Zero out column for dgemv call
     if ((i <= n)) {
       w2[_idx_w2(i, 1)] = 0;
@@ -627,19 +593,19 @@ __global__ void dsyr2_mv_dlarfg_kernel(int n,
   __threadfence();
   nfinished = 0;
   __syncthreads();
-  if (((tx + ty) == 2)) {
+  if ((tx + ty) == 2) {
     nfinished = atomicInc(&finished, (nblocks - 1));
   }
   __syncthreads();
   if ((nfinished < (nblocks - 1))) {
     return; // ! Begin dlarfg work with last block
   }
-  if ((n == 1)) {
+  if (n == 1) {
     return;
   }
   tid = (tx + (ty - 1) * blockDim.x);
   laneid = tid & 31;
-  if ((tid == 1)) {
+  if (tid == 1) {
     alpha_s = x[_idx_x((n - 1))];
     xnorm = 0.0 /*_8*/;
   }
@@ -673,106 +639,67 @@ __global__ void dsyr2_mv_dlarfg_kernel(int n,
   rv1 = (rv1 + rv2);
   rv2 = __shfl_down(rv1, 16);
   rv1 = (rv1 + rv2);
-  if ((laneid == 1)) {
-    istat = atomicAdd(xnorm, rv1);
+  if (laneid == 1) {
+    istat = atomicAdd(&xnorm, rv1);
   }
   __syncthreads();
-if ((xnorm == 0.0 /*_8*/)) {
-  if ((tid == 1)) {
-    tau = 0.0 /*_8*/;
-  }
-} else {
-  if ((tid == 1)) {
-    xnorm = sqrt(xnorm);
-    rv1 = abs(alphar);
-    // ! not taking abs of xnorm
-    scal = max(rv1, xnorm);
-    scal2 = min(rv1, xnorm);
-    if ((scal2 == 0.0e0)) {
-      beta = -sign(scal, alphar);
-
-    } else {
-      beta = -sign((scal * sqrt(pow((1.0e0 + (scal2 / scal)),2))), alphar);
+  if (xnorm == 0.0 /*_8*/) {
+    if (tid == 1) {
+      tau = 0.0 /*_8*/;
     }
-    tau = ((beta - alphar) / beta);
-    e = beta;
-    // ! store beta in e vector
-    alpha_s = (1.e0 / (alphar - beta));
-    // !scaling factor for dscal
-  }
-  __syncthreads();
-  for (int i = tid; i <= (n - 1); i += (blockDim.x * blockDim.y)) {
-    if ((i <= (n - 2))) {
-      x[_idx_x(i)] = (alpha_s * x[_idx_x(i)]);
+  } else {
+    if (tid == 1) {
+      xnorm = sqrt(xnorm);
+      rv1 = abs(alphar);
+      // ! not taking abs of xnorm
+      scal = max(rv1, xnorm);
+      scal2 = min(rv1, xnorm);
+      if (scal2 == 0.0e0) {
+        if (alphar >= 0) {
+          beta = -abs(scal);
+        } else {
 
-    } else if ((i == (n - 1))) {
-      x[_idx_x(i)] = 1.0 /*_8*/;
+          beta = abs(scal);
+        }
+
+      } else {
+        if (alphar >= 0) {
+          beta = -abs(scal * sqrt(pow((1.0e0 + (scal2 / scal)), 2)));
+        } else {
+
+          beta = abs(scal * sqrt(pow((1.0e0 + (scal2 / scal)), 2)));
+        }
+      }
+      tau = ((beta - alphar) / beta);
+      e = beta;
+      // ! store beta in e vector
+      alpha_s = (1.e0 / (alphar - beta));
+      // !scaling factor for dscal
+    }
+    __syncthreads();
+    for (int i = tid; i <= (n - 1); i += (blockDim.x * blockDim.y)) {
+      if ((i <= (n - 2))) {
+        x[_idx_x(i)] = (alpha_s * x[_idx_x(i)]);
+
+      } else if (i == (n - 1)) {
+        x[_idx_x(i)] = 1.0 /*_8*/;
+      }
     }
   }
 }
-}
 
-extern "C" void launch_dsyr2_mv_dlarfg_kernel(dim3 *grid,
-                                              dim3 *block,
-                                              const int sharedMem,
-                                              hipStream_t stream,
-                                              int n,
-                                              int m,
-                                              int ldv,
-                                              int ldw,
-                                              int ldw2,
-                                              double *v,
-                                              const int v_n1,
-                                              const int v_n2,
-                                              const int v_lb1,
-                                              const int v_lb2,
-                                              double *w,
-                                              const int w_n1,
-                                              const int w_n2,
-                                              const int w_lb1,
-                                              const int w_lb2,
-                                              double *w2,
-                                              const int w2_n1,
-                                              const int w2_n2,
-                                              const int w2_lb1,
-                                              const int w2_lb2,
-                                              double *x,
-                                              const int x_n1,
-                                              const int x_lb1,
-                                              double tau,
-                                              double e,
-                                              int finished) {
-  hipLaunchKernelGGL((dsyr2_mv_dlarfg_kernel),
-                     *grid,
-                     *block,
-                     sharedMem,
-                     stream,
-                     n,
-                     m,
-                     ldv,
-                     ldw,
-                     ldw2,
-                     v,
-                     v_n1,
-                     v_n2,
-                     v_lb1,
-                     v_lb2,
-                     w,
-                     w_n1,
-                     w_n2,
-                     w_lb1,
-                     w_lb2,
-                     w2,
-                     w2_n1,
-                     w2_n2,
-                     w2_lb1,
-                     w2_lb2,
-                     x,
-                     x_n1,
-                     x_lb1,
-                     tau,
-                     e,
-                     finished);
+extern "C" void launch_dsyr2_mv_dlarfg_kernel(
+    dim3 *grid, dim3 *block, const int sharedMem, hipStream_t stream, int n,
+    int m, int ldv, int ldw, int ldw2, double *v, const int v_n1,
+    const int v_n2, const int v_lb1, const int v_lb2, double *w, const int w_n1,
+    const int w_n2, const int w_lb1, const int w_lb2, double *w2,
+    const int w2_n1, const int w2_n2, const int w2_lb1, const int w2_lb2,
+    double *x, const int x_n1, const int x_lb1, double tau, double e,
+    int finished) {
+  hipLaunchKernelGGL((dsyr2_mv_dlarfg_kernel), *grid, *block, sharedMem, stream,
+                     n, m, ldv, ldw, ldw2, v, v_n1, v_n2, v_lb1, v_lb2, w, w_n1,
+                     w_n2, w_lb1, w_lb2, w2, w2_n1, w2_n2, w2_lb1, w2_lb2, x,
+                     x_n1, x_lb1, tau, e, finished);
 }
 // END dsyr2_mv_dlarfg_kernel
 
@@ -840,28 +767,13 @@ extern "C" void launch_dsyr2_mv_dlarfg_kernel(dim3 *grid,
 
 */
 
-__global__ void stacked_dgemv_t(int m,
-                                int n,
-                                int ldv,
-                                int ldw,
-                                double *v,
-                                const int v_n1,
-                                const int v_n2,
-                                const int v_lb1,
-                                const int v_lb2,
-                                double *w,
-                                const int w_n1,
-                                const int w_n2,
-                                const int w_lb1,
-                                const int w_lb2,
-                                double *x,
-                                const int x_n1,
-                                const int x_lb1,
-                                double *z1,
-                                const int z1_n1,
-                                const int z1_lb1,
-                                double *z2,
-                                const int z2_n1,
+__global__ void stacked_dgemv_t(int m, int n, int ldv, int ldw, double *v,
+                                const int v_n1, const int v_n2, const int v_lb1,
+                                const int v_lb2, double *w, const int w_n1,
+                                const int w_n2, const int w_lb1,
+                                const int w_lb2, double *x, const int x_n1,
+                                const int x_lb1, double *z1, const int z1_n1,
+                                const int z1_lb1, double *z2, const int z2_n1,
                                 const int z2_lb1) {
 #undef _idx_v
 #define _idx_v(a, b) ((a - (v_lb1)) + v_n1 * (b - (v_lb2)))
@@ -918,71 +830,27 @@ __global__ void stacked_dgemv_t(int m,
   rv1 = (rv1 + rv2);
   rv2 = __shfl_down(rv1, 16);
   rv1 = (rv1 + rv2);
-  if ((tx == 1)) {
+  if (tx == 1) {
     if ((i > m)) {
-      istat = atomicAdd(z2[_idx_z2((i - m))], rv1);
+      istat = atomicAdd(z2+_idx_z2((i - m))*8, rv1);
 
     } else {
-      istat = atomicAdd(z1[_idx_z1(i)], rv1);
+      istat = atomicAdd(z1+_idx_z1(i)*8, rv1);
     }
   }
   return;
 }
 
-extern "C" void launch_stacked_dgemv_t(dim3 *grid,
-                                       dim3 *block,
-                                       const int sharedMem,
-                                       hipStream_t stream,
-                                       int m,
-                                       int n,
-                                       int ldv,
-                                       int ldw,
-                                       double *v,
-                                       const int v_n1,
-                                       const int v_n2,
-                                       const int v_lb1,
-                                       const int v_lb2,
-                                       double *w,
-                                       const int w_n1,
-                                       const int w_n2,
-                                       const int w_lb1,
-                                       const int w_lb2,
-                                       double *x,
-                                       const int x_n1,
-                                       const int x_lb1,
-                                       double *z1,
-                                       const int z1_n1,
-                                       const int z1_lb1,
-                                       double *z2,
-                                       const int z2_n1,
-                                       const int z2_lb1) {
-  hipLaunchKernelGGL((stacked_dgemv_t),
-                     *grid,
-                     *block,
-                     sharedMem,
-                     stream,
-                     m,
-                     n,
-                     ldv,
-                     ldw,
-                     v,
-                     v_n1,
-                     v_n2,
-                     v_lb1,
-                     v_lb2,
-                     w,
-                     w_n1,
-                     w_n2,
-                     w_lb1,
-                     w_lb2,
-                     x,
-                     x_n1,
-                     x_lb1,
-                     z1,
-                     z1_n1,
-                     z1_lb1,
-                     z2,
-                     z2_n1,
+extern "C" void launch_stacked_dgemv_t(
+    dim3 *grid, dim3 *block, const int sharedMem, hipStream_t stream, int m,
+    int n, int ldv, int ldw, double *v, const int v_n1, const int v_n2,
+    const int v_lb1, const int v_lb2, double *w, const int w_n1, const int w_n2,
+    const int w_lb1, const int w_lb2, double *x, const int x_n1,
+    const int x_lb1, double *z1, const int z1_n1, const int z1_lb1, double *z2,
+    const int z2_n1, const int z2_lb1) {
+  hipLaunchKernelGGL((stacked_dgemv_t), *grid, *block, sharedMem, stream, m, n,
+                     ldv, ldw, v, v_n1, v_n2, v_lb1, v_lb2, w, w_n1, w_n2,
+                     w_lb1, w_lb2, x, x_n1, x_lb1, z1, z1_n1, z1_lb1, z2, z2_n1,
                      z2_lb1);
 }
 // END stacked_dgemv_t
@@ -995,8 +863,8 @@ extern "C" void launch_stacked_dgemv_t(dim3 *grid,
       real(8), dimension(N), device, intent(in)    :: x
       real(8), dimension(N), device                :: y
 
-      integer                                      :: tid, i, j, k, nb, istat, laneID
-      real(8)                                      :: rv1, rv2, rsum, mytau
+      integer                                      :: tid, i, j, k, nb, istat,
+   laneID real(8)                                      :: rv1, rv2, rsum, mytau
 
       real(8), shared                              :: alphar
       !real(8), shared                              :: alpha
@@ -1060,8 +928,9 @@ extern "C" void launch_stacked_dgemv_t(dim3 *grid,
 
 */
 
-__global__ void
-finish_w_col_kernel(int n, double tau, double *x, const int x_n1, const int x_lb1, double *y, const int y_n1, const int y_lb1) {
+__global__ void finish_w_col_kernel(int n, double tau, double *x,
+                                    const int x_n1, const int x_lb1, double *y,
+                                    const int y_n1, const int y_lb1) {
 #undef _idx_x
 #define _idx_x(a) ((a - (x_lb1)))
 #undef _idx_y
@@ -1078,16 +947,16 @@ finish_w_col_kernel(int n, double tau, double *x, const int x_n1, const int x_lb
   double rv2;
   double rsum;
   double mytau;
-  // ! TODO could not parse:        real(8), shared                              :: alphar
-  // !real(8), shared                              :: alpha
+  // ! TODO could not parse:        real(8), shared :: alphar !real(8), shared
+  // :: alpha
   __shared__ double alphar;
   double alpha;
   tid = threadIdx.x + 1;
   laneid = tid & 31;
-  if ((tid == 1)) {
+  if (tid == 1) {
     alphar = 0.0 /*_8*/;
   }
-  __syncthreads(); 
+  __syncthreads();
   rsum = 0.0 /*_8*/;
   mytau = tau;
   nb = ceil((float(n) / blockDim.x));
@@ -1116,10 +985,10 @@ finish_w_col_kernel(int n, double tau, double *x, const int x_n1, const int x_lb
   rv1 = (rv1 + rv2);
   rv2 = __shfl_down(rv1, 16);
   rv1 = (rv1 + rv2);
-  if ((laneid == 1)) {
-    istat = atomicAdd(alphar, rv1);
+  if (laneid == 1) {
+    istat = atomicAdd(&alphar, rv1);
   }
-  __syncthreads(); 
+  __syncthreads();
   alpha = (-0.5e0 * mytau * alphar);
   for (int i = tid; i <= n; i += blockDim.x) {
     y[_idx_y(i)] = (mytau * y[_idx_y(i)] + alpha * x[_idx_x(i)]);
@@ -1127,19 +996,13 @@ finish_w_col_kernel(int n, double tau, double *x, const int x_n1, const int x_lb
   }
 }
 
-extern "C" void launch_finish_w_col_kernel(dim3 *grid,
-                                           dim3 *block,
-                                           const int sharedMem,
-                                           hipStream_t stream,
-                                           int n,
-                                           double tau,
-                                           double *x,
-                                           const int x_n1,
-                                           const int x_lb1,
-                                           double *y,
-                                           const int y_n1,
-                                           const int y_lb1) {
-  hipLaunchKernelGGL((finish_w_col_kernel), *grid, *block, sharedMem, stream, n, tau, x, x_n1, x_lb1, y, y_n1, y_lb1);
+extern "C" void
+launch_finish_w_col_kernel(dim3 *grid, dim3 *block, const int sharedMem,
+                           hipStream_t stream, int n, double tau, double *x,
+                           const int x_n1, const int x_lb1, double *y,
+                           const int y_n1, const int y_lb1) {
+  hipLaunchKernelGGL((finish_w_col_kernel), *grid, *block, sharedMem, stream, n,
+                     tau, x, x_n1, x_lb1, y, y_n1, y_lb1);
 }
 // END finish_w_col_kernel
 
@@ -1208,7 +1071,8 @@ extern "C" void launch_finish_w_col_kernel(dim3 *grid,
       rsum = 0.0_8
       mytau = tau
 
-      nb = ceiling(real(M)/(blockDim%x*blockDim%y)) ! number of blocks down column
+      nb = ceiling(real(M)/(blockDim%x*blockDim%y)) ! number of blocks down
+   column
 
       i = tid
       do j = 1, nb
@@ -1254,34 +1118,13 @@ extern "C" void launch_finish_w_col_kernel(dim3 *grid,
 
 */
 
-__global__ void stacked_dgemv_n_finish_w(int m,
-                                         int n,
-                                         int ldv,
-                                         int ldw,
-                                         double *v,
-                                         const int v_n1,
-                                         const int v_n2,
-                                         const int v_lb1,
-                                         const int v_lb2,
-                                         double *w,
-                                         const int w_n1,
-                                         const int w_n2,
-                                         const int w_lb1,
-                                         const int w_lb2,
-                                         double *z1,
-                                         const int z1_n1,
-                                         const int z1_lb1,
-                                         double *z2,
-                                         const int z2_n1,
-                                         const int z2_lb1,
-                                         double *y,
-                                         const int y_n1,
-                                         const int y_lb1,
-                                         double tau,
-                                         double *x,
-                                         const int x_n1,
-                                         const int x_lb1,
-                                         int finished) {
+__global__ void stacked_dgemv_n_finish_w(
+    int m, int n, int ldv, int ldw, double *v, const int v_n1, const int v_n2,
+    const int v_lb1, const int v_lb2, double *w, const int w_n1, const int w_n2,
+    const int w_lb1, const int w_lb2, double *z1, const int z1_n1,
+    const int z1_lb1, double *z2, const int z2_n1, const int z2_lb1, double *y,
+    const int y_n1, const int y_lb1, double tau, double *x, const int x_n1,
+    const int x_lb1, unsigned int finished) {
 #undef _idx_v
 #define _idx_v(a, b) ((a - (v_lb1)) + v_n1 * (b - (v_lb2)))
 #undef _idx_w
@@ -1327,12 +1170,12 @@ __global__ void stacked_dgemv_n_finish_w(int m,
       rv2 = w[_idx_w(i, j)];
     }
     rv1 = (-rv2 * xr);
-    istat = atomicAdd(y[_idx_y(i)], rv1);
+    istat = atomicAdd(y+_idx_y(i)*8, rv1);
   }
   __threadfence();
   nfinished = 0;
   __syncthreads();
-  if (((tx + ty) == 2)) {
+  if ((tx + ty) == 2) {
     nfinished = atomicInc(&finished, (nblocks - 1));
   }
   __syncthreads();
@@ -1341,7 +1184,7 @@ __global__ void stacked_dgemv_n_finish_w(int m,
   }
   tid = (threadIdx.x + (threadIdx.y) * blockDim.x) + 1;
   laneid = tid & 31;
-  if ((tid == 1)) {
+  if (tid == 1) {
     alphar = 0.0 /*_8*/;
   }
   __syncthreads();
@@ -1373,8 +1216,8 @@ __global__ void stacked_dgemv_n_finish_w(int m,
   rv1 = (rv1 + rv2);
   rv2 = __shfl_down(rv1, 16);
   rv1 = (rv1 + rv2);
-  if ((laneid == 1)) {
-    istat = atomicAdd(alphar, rv1);
+  if (laneid == 1) {
+    istat = atomicAdd(&alphar, rv1);
   }
   __syncthreads();
   alpha = (-0.5e0 * mytau * alphar);
@@ -1384,70 +1227,17 @@ __global__ void stacked_dgemv_n_finish_w(int m,
   }
 }
 
-extern "C" void launch_stacked_dgemv_n_finish_w(dim3 *grid,
-                                                dim3 *block,
-                                                const int sharedMem,
-                                                hipStream_t stream,
-                                                int m,
-                                                int n,
-                                                int ldv,
-                                                int ldw,
-                                                double *v,
-                                                const int v_n1,
-                                                const int v_n2,
-                                                const int v_lb1,
-                                                const int v_lb2,
-                                                double *w,
-                                                const int w_n1,
-                                                const int w_n2,
-                                                const int w_lb1,
-                                                const int w_lb2,
-                                                double *z1,
-                                                const int z1_n1,
-                                                const int z1_lb1,
-                                                double *z2,
-                                                const int z2_n1,
-                                                const int z2_lb1,
-                                                double *y,
-                                                const int y_n1,
-                                                const int y_lb1,
-                                                double tau,
-                                                double *x,
-                                                const int x_n1,
-                                                const int x_lb1,
-                                                int finished) {
-  hipLaunchKernelGGL((stacked_dgemv_n_finish_w),
-                     *grid,
-                     *block,
-                     sharedMem,
-                     stream,
-                     m,
-                     n,
-                     ldv,
-                     ldw,
-                     v,
-                     v_n1,
-                     v_n2,
-                     v_lb1,
-                     v_lb2,
-                     w,
-                     w_n1,
-                     w_n2,
-                     w_lb1,
-                     w_lb2,
-                     z1,
-                     z1_n1,
-                     z1_lb1,
-                     z2,
-                     z2_n1,
-                     z2_lb1,
-                     y,
-                     y_n1,
-                     y_lb1,
-                     tau,
-                     x,
-                     x_n1,
-                     x_lb1,
-                     finished);
+extern "C" void launch_stacked_dgemv_n_finish_w(
+    dim3 *grid, dim3 *block, const int sharedMem, hipStream_t stream, int m,
+    int n, int ldv, int ldw, double *v, const int v_n1, const int v_n2,
+    const int v_lb1, const int v_lb2, double *w, const int w_n1, const int w_n2,
+    const int w_lb1, const int w_lb2, double *z1, const int z1_n1,
+    const int z1_lb1, double *z2, const int z2_n1, const int z2_lb1, double *y,
+    const int y_n1, const int y_lb1, double tau, double *x, const int x_n1,
+    const int x_lb1, int finished) {
+  hipLaunchKernelGGL((stacked_dgemv_n_finish_w), *grid, *block, sharedMem,
+                     stream, m, n, ldv, ldw, v, v_n1, v_n2, v_lb1, v_lb2, w,
+                     w_n1, w_n2, w_lb1, w_lb2, z1, z1_n1, z1_lb1, z2, z2_n1,
+                     z2_lb1, y, y_n1, y_lb1, tau, x, x_n1, x_lb1, finished);
 }
 // END stacked_dgemv_n_finish_w

@@ -70,29 +70,36 @@ contains
          istat = hipStreamWaitEvent(stream1, event2, 0)
          ! Populate subblock with complete symmetric entries (needed for DTRSM calls)
          ! extracted to HIP C++ file
-         CALL launch_krnl_afb01f_0_auto(0, stream1, kb, a, a_n1, a_n2, a_lb1, a_lb2, k)
+         CALL launch_krnl_afb01f_0_auto(0, stream1, kb, a(1,1), a_n1, a_n2, a_lb1, a_lb2, k)
 
          ! Solve subblock problem (this version results in fully populated A subblock)
-         istat = hipblasdtrsm_v2(hipblasHandle,  HIPBLAS_SIDE_LEFT, HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_T, HIPBLAS_OP_N, kb, kb, one, B(k, k), ldb, A(k, k), lda)
-         istat = hipblasdtrsm_v2(hipblasHandle,  HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_N, HIPBLAS_OP_N, kb, kb, one, B(k, k), ldb, A(k, k), lda)
+         istat = hipblasdtrsm(hipblasHandle,  HIPBLAS_SIDE_LEFT, HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_T, HIPBLAS_OP_N, kb, kb, &
+         one, B(k, k), ldb, A(k, k), lda)
+         istat = hipblasdtrsm(hipblasHandle,  HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_N, HIPBLAS_OP_N, kb, kb, &
+          one, B(k, k), ldb, A(k, k), lda)
 
          istat = hipEventRecord(event1, stream1)
 
          if (k + kb .le. N) then
             istat = hipblasSetStream(hipblasHandle, stream2)
-            istat = hipblasdtrsm_v2(hipblasHandle,  HIPBLAS_SIDE_LEFT, HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_T, HIPBLAS_OP_N, kb, (N - k - kb + 1), one, B(k, k), ldb, A(k, (k + kb)), lda)
+            istat = hipblasdtrsm(hipblasHandle,  HIPBLAS_SIDE_LEFT, HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_T, HIPBLAS_OP_N,&
+             kb, (N - k - kb + 1), one, B(k, k), ldb, A(k, (k + kb)), lda)
 
             istat = hipStreamWaitEvent(stream2, event1, 0)
 
             ! Since the A subblock is fully populated, use gemm instead of hemm here
-            istat = hipblasdgemm_v2(hipblasHandle,  HIPBLAS_OP_N, HIPBLAS_OP_N, kb, (N - k - kb + 1), kb, -half, A(k, k), lda, B(k, (k + kb)), ldb, one, A(k, (k + kb)), lda)
-            istat = hipblasdsyr2k_v2(hipblasHandle,  HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_T, (N - k - kb + 1), kb, -one, A(k, (k + kb)), lda, B(k, (k + kb)), ldb, one, A((k + kb), (k + kb)), lda)
+            istat = hipblasdgemm(hipblasHandle,  HIPBLAS_OP_N, HIPBLAS_OP_N, kb, (N - k - kb + 1), kb, &
+            -half, A(k, k), lda, B(k, (k + kb)), ldb, one, A(k, (k + kb)), lda)
+            istat = hipblasdsyr2k(hipblasHandle,  HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_T, (N - k - kb + 1), kb, -one, &
+            A(k, (k + kb)), lda, B(k, (k + kb)), ldb, one, A((k + kb), (k + kb)), lda)
 
             istat = hipEventRecord(event2, stream2)
 
-            istat = hipblasdgemm_v2(hipblasHandle, HIPBLAS_OP_N, HIPBLAS_OP_N, kb, (N - k - kb + 1), kb, -half, A(k, k), lda, B(k, (k + kb)), ldb, one, A(k, (k + kb)), lda)
+            istat = hipblasdgemm(hipblasHandle, HIPBLAS_OP_N, HIPBLAS_OP_N, kb, (N - k - kb + 1), kb, -half, A(k, k), &
+            lda, B(k, (k + kb)), ldb, one, A(k, (k + kb)), lda)
 
-            istat = hipblasdtrsm_v2(hipblasHandle, HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, HIPBLAS_OP_N, kb, N - k - kb + 1, one, B(k + kb, k + kb), ldb, A(k, k + kb), lda)
+            istat = hipblasdtrsm(hipblasHandle, HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, HIPBLAS_OP_N, kb,&
+            N - k - kb + 1, one, B(k + kb, k + kb), ldb, A(k, k + kb), lda)
 
          end if
 

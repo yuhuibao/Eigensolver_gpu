@@ -183,7 +183,7 @@ __global__ void dsymv_gpu(int n,
                           const int y_n1,
                           const int y_lb1) {
 
-const int ar_s_n1, ar_s_lb1, ar_s_n2, ar_s_lb2, r_s_n1, r_s_bl1
+int ar_s_n1, ar_s_lb1, ar_s_n2, ar_s_lb2, r_s_n1, r_s_lb1;
 #undef _idx_a
 #define _idx_a(a, b) ((a - (a_lb1)) + a_n1 * (b - (a_lb2)))
 #undef _idx_x
@@ -200,11 +200,11 @@ const int ar_s_n1, ar_s_lb1, ar_s_n2, ar_s_lb2, r_s_n1, r_s_bl1
   // ! TODO could not parse:      real(8), dimension(bx + 1, bx), shared              :: ar_s
   // ! TODO could not parse:      real(8), dimension(bx), shared                    :: r_s
   __shared__ double r_s[BX];
-  __shared__ double ar_s[BX + 1][BX];
+  __shared__ double* ar_s;
   ar_s_n1 = BX + 1;
   ar_s_n2 = BX;
   ar_s_lb1 = 1;
-  ar_s_lb2 + 1;
+  ar_s_lb2 = 1;
   r_s_n1 = BX;
   r_s_lb1 = 1;
   int tx;
@@ -238,21 +238,21 @@ const int ar_s_n1, ar_s_lb1, ar_s_n2, ar_s_lb2, r_s_n1, r_s_bl1
     j = (jj + ty - 1);
     // ! Load block into shared memory
     // ! CASE 1: Diagonal block
-    if ((ii == jj)) {
+    if (ii == jj) {
       // ! Load full block into shared memory
-      for (int k = 0; k <= (ntiles - 1); k += 1) {
+      for (int k = 0; k <= (NTILES - 1); k += 1) {
         if ((i <= n && (j + k * blockDim.y) <= n)) {
           ar_s[_idx_ar_s(tx, (ty + k * blockDim.y))] = a[_idx_a(i, (j + k * blockDim.y))];
         }
       }
       __syncthreads(); // ! Reflect to populate lower triangular part with true values of A
-          for (int k = 0; k <= (ntiles - 1); k += 1) {
+          for (int k = 0; k <= (NTILES - 1); k += 1) {
         if ((tx > (ty + k * blockDim.y))) {
           ar_s[_idx_ar_s(tx, (ty + k * blockDim.y))] = ar_s[_idx_ar_s((ty + k * blockDim.y), tx)];
         }
       }
       __syncthreads();
-       for (int k = 0; k <= (ntiles - 1); k += 1) {
+       for (int k = 0; k <= (NTILES - 1); k += 1) {
         if ((i <= n & (j + k * blockDim.y) <= n)) {
           mysum = (mysum + ar_s[_idx_ar_s(tx, (ty + k * blockDim.y))] * x[_idx_x((j + k * blockDim.y))]);
         }
@@ -261,7 +261,7 @@ const int ar_s_n1, ar_s_lb1, ar_s_n2, ar_s_lb2, r_s_n1, r_s_bl1
       // ! CASE 2: Upper triangular block
 
     } else if ((ii < jj)) {
-      for (int k = 0; k <= (ntiles - 1); k += 1) {
+      for (int k = 0; k <= (NTILES - 1); k += 1) {
         if (((j + k * blockDim.y) <= n)) {
           ar = a[_idx_a(i, (j + k * blockDim.y))];
         }
@@ -286,20 +286,20 @@ const int ar_s_n1, ar_s_lb1, ar_s_n2, ar_s_lb2, r_s_n1, r_s_bl1
         rv1 = (rv1 + rv2);
         rv2 = __shfl_down(rv1, 16);
         rv1 = (rv1 + rv2);
-        if ((tx == 1)) {
+        if (tx == 1) {
           r_s[_idx_r_s((ty + k * blockDim.y))] = rv1;
         }
       }
       __syncthreads(); 
       if ((ty == 1 & (jj + tx - 1) <= n)) { 
-          istat = atomicAdd(y[_idx_y((jj + tx - 1))], r_s[_idx_r_s(tx)]); 
+          istat = atomicAdd(y + _idx_y((jj + tx - 1)*8), r_s[_idx_r_s(tx)]); 
       }
       // !call __syncthreads()
     }
     __syncthreads();
   }
   if ((i <= n)) {
-    istat = atomicAdd(y[_idx_y(i)], mysum);
+    istat = atomicAdd(y + _idx_y(i)*8, mysum);
   }
 }
 

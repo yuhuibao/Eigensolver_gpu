@@ -33,13 +33,12 @@ module dsyevd_gpu
 contains
 
    ! Custom dsyevd routine
-   subroutine dsyevd_gpu(jobz, uplo, il, iu, N, A, lda, Z, ldz, w, work, lwork, &
+   subroutine dsyevd_gpu_h(jobz, uplo, il, iu, N, A, lda, Z, ldz, w, work, lwork, &
                          work_h, lwork_h, iwork_h, liwork_h, Z_h, ldz_h, w_h, info)
       use dsyevd_gpu_kernels
       use dsytrd_gpu
 
       use eigsolve_vars
-      use nvtx_inters
       implicit none
       character                                   :: uplo, jobz
       integer                                     :: N, NZ, lda, lwork, istat, info
@@ -153,7 +152,7 @@ contains
 
       call nvtxEndRange
 
-   end subroutine dsyevd_gpu
+   end subroutine dsyevd_gpu_h
 
    subroutine dlarft_gpu(N, K, V, ldv, tau, T, ldt, W, ldw)
       use dsyevd_gpu_kernels

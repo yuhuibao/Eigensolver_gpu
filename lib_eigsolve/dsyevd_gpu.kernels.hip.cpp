@@ -424,7 +424,7 @@ __global__ void finish_t_block_kernel(int n,
   int j;
   int k;
   int diag;
-  hipDoubleComplex cv;
+  double cv;
   tx = threadIdx.x + 1;
   ty = threadIdx.y + 1;
   tid = ((ty - 1) * blockDim.x + tx);
@@ -436,14 +436,14 @@ __global__ void finish_t_block_kernel(int n,
       if ((tx > j)) {
         t_s[_idx_t_s(IJ2TRI(tx, j))] = (-cv * t[_idx_t(tx, j)]);
 
-      } else if ((tx == j)) {
+      } else if (tx == j) {
         t_s[_idx_t_s(IJ2TRI(tx, j))] = cv;
       }
     }
   }
-  __syncthreads() // ! Perform column by column update by first thread column
+  __syncthreads(); // ! Perform column by column update by first thread column
       for (int i = (n - 1); i <= 1; i += -1) {
-    if ((ty == 1)) {
+    if (ty == 1) {
       if ((tx > i & tx <= n)) {
         cv = 0.0e0;
         for (int j = (i + 1); j <= tx; j += 1) {
@@ -455,9 +455,9 @@ __global__ void finish_t_block_kernel(int n,
     if ((ty == 1 & tx > i & tx <= n)) {
         t_s[_idx_t_s(IJ2TRI(tx, i))] = cv;
     }
-    __syncthreads()
+    __syncthreads();
   }
-  __syncthreads() // ! Write T_s to global
+  __syncthreads(); // ! Write T_s to global
       if ((tx <= n)) {
     for (int j = ty; j <= n; j += blockDim.y) {
       if ((tx >= j)) {

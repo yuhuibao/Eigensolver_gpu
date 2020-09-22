@@ -28,10 +28,10 @@ module eigsolve_vars
    use iso_c_binding_ext
    use hipblas
 
-   !use cusolverDn
+   use rocsolver
    integer                        :: initialized = 0
    type(c_ptr)             :: hipblasHandle
-   !type(cusolverDnHandle)         :: cusolverHandle
+   type(c_ptr)         :: rocsolverHandle
    type(c_ptr) :: event1 = c_null_ptr, event2 = c_null_ptr, event3 = c_null_ptr
    type(c_ptr) :: stream1 = c_null_ptr, stream2 = c_null_ptr, stream3 = c_null_ptr
    type(c_ptr) :: devInfo_d = c_null_ptr
@@ -56,7 +56,7 @@ contains
          istat = hipDeviceSetSharedMemConfig(hipSharedMemBankSizeEightByte)
 
          istat = hipblasCreate(hipblasHandle)
-         !istat = cusolverDnCreate(cusolverHandle)
+         istat = rocsolver_create_handle(rocsolverHandle)
          istat = hipStreamCreate(stream1)
          istat = hipStreamCreate(stream2)
          istat = hipStreamCreate(stream3)
