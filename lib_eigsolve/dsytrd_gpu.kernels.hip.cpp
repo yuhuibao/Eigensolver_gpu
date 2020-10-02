@@ -533,9 +533,9 @@ extern "C" void launch_dlarfg_kernel(dim3 *grid, dim3 *block,
 
 __global__ void dsyr2_mv_dlarfg_kernel(
     int n, int m, int ldv, int ldw, int ldw2, double *v, const int v_n1,
-    const int v_n2, const int v_lb1, const int v_lb2, double *w, const int w_n1,
-    const int w_n2, const int w_lb1, const int w_lb2, double *w2,
-    const int w2_n1, const int w2_n2, const int w2_lb1, const int w2_lb2,
+    const int v_lb1, const int v_lb2, double *w, const int w_n1,
+    const int w_lb1, const int w_lb2, double *w2,
+    const int w2_n1, const int w2_lb1, const int w2_lb2,
     double *x, const int x_n1, const int x_lb1, double tau, double e,
     unsigned int finished) {
 #undef _idx_v
@@ -691,9 +691,9 @@ __global__ void dsyr2_mv_dlarfg_kernel(
 extern "C" void launch_dsyr2_mv_dlarfg_kernel(
     dim3 *grid, dim3 *block, const int sharedMem, hipStream_t stream, int n,
     int m, int ldv, int ldw, int ldw2, double *v, const int v_n1,
-    const int v_n2, const int v_lb1, const int v_lb2, double *w, const int w_n1,
-    const int w_n2, const int w_lb1, const int w_lb2, double *w2,
-    const int w2_n1, const int w2_n2, const int w2_lb1, const int w2_lb2,
+    const int v_lb1, const int v_lb2, double *w, const int w_n1,
+    const int w_lb1, const int w_lb2, double *w2,
+    const int w2_n1, const int w2_lb1, const int w2_lb2,
     double *x, const int x_n1, const int x_lb1, double tau, double e,
     int finished) {
   hipLaunchKernelGGL((dsyr2_mv_dlarfg_kernel), *grid, *block, sharedMem, stream,
@@ -768,9 +768,9 @@ extern "C" void launch_dsyr2_mv_dlarfg_kernel(
 */
 
 __global__ void stacked_dgemv_t(int m, int n, int ldv, int ldw, double *v,
-                                const int v_n1, const int v_n2, const int v_lb1,
+                                const int v_n1, const int v_lb1,
                                 const int v_lb2, double *w, const int w_n1,
-                                const int w_n2, const int w_lb1,
+                                const int w_lb1,
                                 const int w_lb2, double *x, const int x_n1,
                                 const int x_lb1, double *z1, const int z1_n1,
                                 const int z1_lb1, double *z2, const int z2_n1,
@@ -844,12 +844,12 @@ __global__ void stacked_dgemv_t(int m, int n, int ldv, int ldw, double *v,
 extern "C" void launch_stacked_dgemv_t(
     dim3 *grid, dim3 *block, const int sharedMem, hipStream_t stream, int m,
     int n, int ldv, int ldw, double *v, const int v_n1, const int v_n2,
-    const int v_lb1, const int v_lb2, double *w, const int w_n1, const int w_n2,
+    const int v_lb1, const int v_lb2, double *w, const int w_n1,
     const int w_lb1, const int w_lb2, double *x, const int x_n1,
     const int x_lb1, double *z1, const int z1_n1, const int z1_lb1, double *z2,
     const int z2_n1, const int z2_lb1) {
   hipLaunchKernelGGL((stacked_dgemv_t), *grid, *block, sharedMem, stream, m, n,
-                     ldv, ldw, v, v_n1, v_n2, v_lb1, v_lb2, w, w_n1, w_n2,
+                     ldv, ldw, v, v_n1, v_lb1, v_lb2, w, w_n1,
                      w_lb1, w_lb2, x, x_n1, x_lb1, z1, z1_n1, z1_lb1, z2, z2_n1,
                      z2_lb1);
 }
@@ -1119,8 +1119,8 @@ launch_finish_w_col_kernel(dim3 *grid, dim3 *block, const int sharedMem,
 */
 
 __global__ void stacked_dgemv_n_finish_w(
-    int m, int n, int ldv, int ldw, double *v, const int v_n1, const int v_n2,
-    const int v_lb1, const int v_lb2, double *w, const int w_n1, const int w_n2,
+    int m, int n, int ldv, int ldw, double *v, const int v_n1, 
+    const int v_lb1, const int v_lb2, double *w, const int w_n1, 
     const int w_lb1, const int w_lb2, double *z1, const int z1_n1,
     const int z1_lb1, double *z2, const int z2_n1, const int z2_lb1, double *y,
     const int y_n1, const int y_lb1, double tau, double *x, const int x_n1,
@@ -1229,15 +1229,15 @@ __global__ void stacked_dgemv_n_finish_w(
 
 extern "C" void launch_stacked_dgemv_n_finish_w(
     dim3 *grid, dim3 *block, const int sharedMem, hipStream_t stream, int m,
-    int n, int ldv, int ldw, double *v, const int v_n1, const int v_n2,
-    const int v_lb1, const int v_lb2, double *w, const int w_n1, const int w_n2,
+    int n, int ldv, int ldw, double *v, const int v_n1,
+    const int v_lb1, const int v_lb2 double *w, const int w_n1,
     const int w_lb1, const int w_lb2, double *z1, const int z1_n1,
     const int z1_lb1, double *z2, const int z2_n1, const int z2_lb1, double *y,
     const int y_n1, const int y_lb1, double tau, double *x, const int x_n1,
     const int x_lb1, int finished) {
   hipLaunchKernelGGL((stacked_dgemv_n_finish_w), *grid, *block, sharedMem,
-                     stream, m, n, ldv, ldw, v, v_n1, v_n2, v_lb1, v_lb2, w,
-                     w_n1, w_n2, w_lb1, w_lb2, z1, z1_n1, z1_lb1, z2, z2_n1,
+                     stream, m, n, ldv, ldw, v, v_n1,v_lb1, v_lb2, w,
+                     w_n1, w_lb1, w_lb2, z1, z1_n1, z1_lb1, z2, z2_n1,
                      z2_lb1, y, y_n1, y_lb1, tau, x, x_n1, x_lb1, finished);
 }
 // END stacked_dgemv_n_finish_w

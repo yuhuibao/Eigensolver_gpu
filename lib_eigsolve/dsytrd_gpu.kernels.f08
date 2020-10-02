@@ -153,17 +153,14 @@ module dsytrd_gpu_kernels
         ldw2,&
         v,&
         v_n1,&
-        v_n2,&
         v_lb1,&
         v_lb2,&
         w,&
         w_n1,&
-        w_n2,&
         w_lb1,&
         w_lb2,&
         w2,&
         w2_n1,&
-        w2_n2,&
         w2_lb1,&
         w2_lb2,&
         x,&
@@ -186,17 +183,14 @@ module dsytrd_gpu_kernels
       INTEGER,value :: ldw2
       type(c_ptr),value :: v
       integer(c_int),value,intent(IN) :: v_n1
-      integer(c_int),value,intent(IN) :: v_n2
       integer(c_int),value,intent(IN) :: v_lb1
       integer(c_int),value,intent(IN) :: v_lb2
       type(c_ptr),value :: w
       integer(c_int),value,intent(IN) :: w_n1
-      integer(c_int),value,intent(IN) :: w_n2
       integer(c_int),value,intent(IN) :: w_lb1
       integer(c_int),value,intent(IN) :: w_lb2
       type(c_ptr),value :: w2
       integer(c_int),value,intent(IN) :: w2_n1
-      integer(c_int),value,intent(IN) :: w2_n2
       integer(c_int),value,intent(IN) :: w2_lb1
       integer(c_int),value,intent(IN) :: w2_lb2
       type(c_ptr),value :: x
@@ -217,12 +211,10 @@ module dsytrd_gpu_kernels
         ldw,&
         v,&
         v_n1,&
-        v_n2,&
         v_lb1,&
         v_lb2,&
         w,&
         w_n1,&
-        w_n2,&
         w_lb1,&
         w_lb2,&
         x,&
@@ -247,12 +239,10 @@ module dsytrd_gpu_kernels
       INTEGER,value :: ldw
       type(c_ptr),value :: v
       integer(c_int),value,intent(IN) :: v_n1
-      integer(c_int),value,intent(IN) :: v_n2
       integer(c_int),value,intent(IN) :: v_lb1
       integer(c_int),value,intent(IN) :: v_lb2
       type(c_ptr),value :: w
       integer(c_int),value,intent(IN) :: w_n1
-      integer(c_int),value,intent(IN) :: w_n2
       integer(c_int),value,intent(IN) :: w_lb1
       integer(c_int),value,intent(IN) :: w_lb2
       type(c_ptr),value :: x
@@ -307,12 +297,10 @@ module dsytrd_gpu_kernels
         ldw,&
         v,&
         v_n1,&
-        v_n2,&
         v_lb1,&
         v_lb2,&
         w,&
         w_n1,&
-        w_n2,&
         w_lb1,&
         w_lb2,&
         z1,&
@@ -342,12 +330,10 @@ module dsytrd_gpu_kernels
       INTEGER,value :: ldw
       type(c_ptr),value :: v
       integer(c_int),value,intent(IN) :: v_n1
-      integer(c_int),value,intent(IN) :: v_n2
       integer(c_int),value,intent(IN) :: v_lb1
       integer(c_int),value,intent(IN) :: v_lb2
       type(c_ptr),value :: w
       integer(c_int),value,intent(IN) :: w_n1
-      integer(c_int),value,intent(IN) :: w_n2
       integer(c_int),value,intent(IN) :: w_lb1
       integer(c_int),value,intent(IN) :: w_lb2
       type(c_ptr),value :: z1

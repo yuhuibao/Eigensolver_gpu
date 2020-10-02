@@ -277,32 +277,32 @@ contains
       if (N > 1) then
          iw = nb
          ! Generate elementary reflector H(i) to annihilate A(1:i-2, i)
-         CALL launch_dlarfg_kernel(1, threads, 0, c_null_ptr,N - 1, tau(N - 1),e(N - 1), A(1, N),,)
+         CALL launch_dlarfg_kernel(1, threads, 0, c_null_ptr,N - 1, tau(N - 1),e(N - 1), A(1, N),lda,-lda*(N-1))
          ! extracted to HIP C++ file
          ! TODO(gpufort) fix arguments
          CALL launch_krnl_37a79c_1_auto(0, c_null_ptr, w, w_n1, w_n2, w_lb1, w_lb2, n, iw)
 
          blocks2D = dim3(10, ceiling(real(N - 1)/32), 1) !JR TODO: What is optimal number of columns for our problem size?
-         CALL launch_dsymv_gpu(blocks2D, threads2D, 0, hipDefaultStream, N-1, lda,A, a_n1, a_n2, a_lb1, a_lb2, A(1, N), , , W(1, iw),,)
+         CALL launch_dsymv_gpu(blocks2D, threads2D, 0, hipDefaultStream, N-1, lda,A, a_n1, a_n2, a_lb1, a_lb2, A(1, N),lda ,-lda*(N-1) , W(1, iw),ldw,-ldw*(iw-1))
 
-         CALL launch_finish_W_col_kernel(1, threads,0, c_null_ptr, N - 1, tau(N - 1), A(1, N),, , W(1, iw), ,)
+         CALL launch_finish_W_col_kernel(1, threads,0, c_null_ptr, N - 1, tau(N - 1), A(1, N),lda,-lda*(N-1) , W(1, iw),ldw ,-ldw*(iw-1))
       endif
 
       do i = N - 1, N - nb + 1, -1
          iw = i - N + nb
 
          blocks2D = dim3(ceiling(real(max(i, N - i))/32), ceiling(real(N - i)/8), 1)
-         CALL launch_dsyr2_mv_dlarfg_kernel(blocks2D, threads2D, 0, hipDefaultStream, i, N - i, lda, ldw, ldw, A(1,i+1),a_n1,a_2,a_lb1,a_lb2,W(1, iw+1),w_n1,w_2,w_lb1,w_lb2,W(1, iw),w_n1,w_2,w_lb1,w_lb2, A(1,i),,, e(i-1), tau(i-1), finished(1))
+         CALL launch_dsyr2_mv_dlarfg_kernel(blocks2D, threads2D, 0, hipDefaultStream, i, N - i, lda, ldw, ldw, A(1,i+1),a_n1,1,i,W(1, iw+1),w_n1,1,iw,W(1, iw),w_n1,1,iw_1, A(1,i),lda, -lda*(i-1), e(i-1), tau(i-1), finished(1))
 
          if (i > 1) then
             ! Generate elementary reflector H(i) to annihilate A(1:i-2, i)
 
             blocks2D = dim3(10, ceiling(real(i - 1)/32), 1) !JR TODO: What is optimal number of columns for our problem size?
-            CALL launch_dsymv_gpu(blocks2D, threads2D, 0, hipDefaultStream, i - 1, lda, A,a_n1, a_n2, a_lb1, a_lb2, A(1, N), , , W(1, iw),,)
+            CALL launch_dsymv_gpu(blocks2D, threads2D, 0, hipDefaultStream, i - 1, lda, A,a_n1, a_n2, a_lb1, a_lb2, A(1, N), lda,-lda*(N-1) , W(1, iw),ldw,-ldw*(iw-1))
 
             blocks2D = dim3(ceiling(real(i - 1)/32), ceiling(real(2*(n - i))/8), 1)
-            CALL launch_stacked_dgemv_T(blocks2D, threads2D, 0, hipDefaultStream, n - i, i - 1, lda, ldw, A(1,i+1),a_n1,a_n2,a_lb1,a_lb2,W(1,iw+1),w_n1,w_n2,w_lb1,w_lb2,A(1,i),a_n2,a_lb2,W(i+1, iw), ,,W(i+1, iw+1),,,)
-            CALL launch_stacked_dgemv_N_finish_W(blocks2D, threads2D, 0, hipDefaultStream, i - 1, n - i, lda, ldw, A(1,i+1),a_n1,a_n2,a_lb1,a_lb2,W(1, iw+1),w_n1,w_n2,w_lb1,w_lb2,W(i+1,iw),,, W(i+1, iw+1),,,W(1, iw),,, tau(i-1), A(1, i),,, finished(1))
+            CALL launch_stacked_dgemv_T(blocks2D, threads2D, 0, hipDefaultStream, n - i, i - 1, lda, ldw, A(1,i+1),a_n1,1,i,W(1,iw+1),w_n1,i,iw,A(1,i),lda,-lda*i,W(i+1, iw), ldw-i,-ldw*iw-i,W(i+1, iw+1),ldw-i,-ldw*iw-i)
+            CALL launch_stacked_dgemv_N_finish_W(blocks2D, threads2D, 0, hipDefaultStream, i - 1, n - i, lda, ldw, A(1,i+1),a_n1,i,i,W(1, iw+1),w_n1,1,iw,W(i+1,iw),ldw-i,-ldw*(iw-1)-i, W(i+1, iw+1),ldw-i,-ldw*iw-i,W(1, iw),ldw,-ldw*(iw-1), tau(i-1), A(1, i),lda,-lda*(i-1), finished(1))
 
 
          end if
