@@ -65,6 +65,7 @@ contains
 
          initialized = 1
          CALL hipCheck(hipMalloc(finished, 1_8*(4)*(1)))
+         call hipCheck(hipMalloc(devInfo_d,1_8*4))
          allocate(hfinished(1))
          hfinished(1) = 0
          call hipCheck(hipMemcpy(finished, c_loc(hfinished),1_8*(4)*(1),hipMemcpyHostToDevice))

@@ -135,8 +135,8 @@ module dsytrd_gpu_kernels
       integer(c_int),intent(IN) :: sharedMem
       type(c_ptr),value,intent(IN) :: stream
       INTEGER,value :: n
-      REAL(kind=8),value :: tau
-      REAL(kind=8),value :: e
+      type(c_ptr),value :: tau
+      type(c_ptr),value :: e
       type(c_ptr),value :: x
       integer(c_int),value,intent(IN) :: x_n1
       integer(c_int),value,intent(IN) :: x_lb1
@@ -196,9 +196,9 @@ module dsytrd_gpu_kernels
       type(c_ptr),value :: x
       integer(c_int),value,intent(IN) :: x_n1
       integer(c_int),value,intent(IN) :: x_lb1
-      REAL(kind=8),value :: tau
-      REAL(kind=8),value :: e
-      INTEGER,value :: finished
+      type(c_ptr),value :: tau
+      type(c_ptr),value :: e
+      type(c_ptr),value :: finished
     end subroutine
 
     subroutine launch_stacked_dgemv_t(grid,&
@@ -278,7 +278,7 @@ module dsytrd_gpu_kernels
       integer(c_int),intent(IN) :: sharedMem
       type(c_ptr),value,intent(IN) :: stream
       INTEGER,value :: n
-      REAL(kind=8),value :: tau
+      type(c_ptr),value :: tau
       type(c_ptr),value :: x
       integer(c_int),value,intent(IN) :: x_n1
       integer(c_int),value,intent(IN) :: x_lb1
@@ -345,11 +345,11 @@ module dsytrd_gpu_kernels
       type(c_ptr),value :: y
       integer(c_int),value,intent(IN) :: y_n1
       integer(c_int),value,intent(IN) :: y_lb1
-      REAL(kind=8),value :: tau
+      type(c_ptr),value :: tau
       type(c_ptr),value :: x
       integer(c_int),value,intent(IN) :: x_n1
       integer(c_int),value,intent(IN) :: x_lb1
-      INTEGER,value :: finished
+      type(c_ptr),value :: finished
     end subroutine
 
   end interface
