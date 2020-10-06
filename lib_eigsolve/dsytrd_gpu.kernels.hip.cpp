@@ -697,8 +697,8 @@ extern "C" void launch_dsyr2_mv_dlarfg_kernel(
     double *x, const int x_n1, const int x_lb1, double *tau, double *e,
     int *finished) {
   hipLaunchKernelGGL((dsyr2_mv_dlarfg_kernel), *grid, *block, sharedMem, stream,
-                     n, m, ldv, ldw, ldw2, v, v_n1, v_n2, v_lb1, v_lb2, w, w_n1,
-                     w_n2, w_lb1, w_lb2, w2, w2_n1, w2_n2, w2_lb1, w2_lb2, x,
+                     n, m, ldv, ldw, ldw2, v, v_n1, v_lb1, v_lb2, w, w_n1,
+                     w_lb1, w_lb2, w2, w2_n1, w2_lb1, w2_lb2, x,
                      x_n1, x_lb1, *tau, *e, *finished);
 }
 // END dsyr2_mv_dlarfg_kernel
@@ -1230,7 +1230,7 @@ __global__ void stacked_dgemv_n_finish_w(
 extern "C" void launch_stacked_dgemv_n_finish_w(
     dim3 *grid, dim3 *block, const int sharedMem, hipStream_t stream, int m,
     int n, int ldv, int ldw, double *v, const int v_n1,
-    const int v_lb1, const int v_lb2 double *w, const int w_n1,
+    const int v_lb1, const int v_lb2, double *w, const int w_n1,
     const int w_lb1, const int w_lb2, double *z1, const int z1_n1,
     const int z1_lb1, double *z2, const int z2_n1, const int z2_lb1, double *y,
     const int y_n1, const int y_lb1, double *tau, double *x, const int x_n1,
