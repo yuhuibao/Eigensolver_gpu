@@ -390,8 +390,9 @@ __global__ void zhetd2_gpu(int lda,
         for (int j = 1; j <= i; j += 1) {
           tau[_idx_tau(tl)] = (tau[_idx_tau(tl)] + taui * a_s[_idx_a_s(tl, j)] * a_s[_idx_a_s(j, (i + 1))]);
         }
-      }
-      __syncthreads() if ((tl <= 32)) {
+       }
+      __syncthreads();
+      if ((tl <= 32)) {
         if ((tl <= i)) {
           wc = (taui * conj(tau[_idx_tau(tl)]) * a_s[_idx_a_s(tl, (i + 1))]);
           x = (-.5e0 * make_double(wc));
@@ -422,76 +423,39 @@ __global__ void zhetd2_gpu(int lda,
         w = __shfl_xor(y, 16);
         y = (y + w);
       }
-      __syncthreads() if ((tl <= i)) { tau[_idx_tau(tl)] = (tau[_idx_tau(tl)] + make_doubleComplex(x, y) * a_s[_idx_a_s(tl, (i + 1))]); }
-      if ((tl == 1)) {
+      __syncthreads();
+      if (tl <= i) { 
+          tau[_idx_tau(tl)] = (tau[_idx_tau(tl)] + make_doubleComplex(x, y) * a_s[_idx_a_s(tl, (i + 1))]);
+      }
+      if (tl == 1) {
         alpha = make_doubleComplex(x, y);
       }
-      __syncthreads() if ((tx <= i & ty <= i)) {
+      __syncthreads();
+      if ((tx <= i & ty <= i)) {
         a_s[_idx_a_s(tx, ty)] = (a_s[_idx_a_s(tx, ty)] - a_s[_idx_a_s(tx, (i + 1))] * conj(tau[_idx_tau(ty)]) -
                                  conj(a_s[_idx_a_s(ty, (i + 1))]) * tau[_idx_tau(tx)]);
       }
-      __syncthreads()
+      __syncthreads();
     } else {
-      if ((tl == 1)) {
+      if (tl == 1) {
         a_s[_idx_a_s(i, i)] = make_double(a_s[_idx_a_s(i, i)]);
       }
     }
-    if ((tl == 1)) {
+    if (tl == 1) {
       a_s[_idx_a_s(i, (i + 1))] = e[_idx_e(i)];
       d[_idx_d((i + 1))] = a_s[_idx_a_s((i + 1), (i + 1))];
       tau[_idx_tau(i)] = taui;
     }
-    __syncthreads()
+    __syncthreads();
   }
-  if ((tl == 1)) {
+  if (tl == 1) {
     d[_idx_d(1)] = a_s[_idx_a_s(1, 1)];
   }
-  __syncthreads() // ! Back to device memory
-      if ((tx <= n & ty <= n)) {
+  __syncthreads(); // ! Back to device memory
+  if ((tx <= n & ty <= n)) {
     a[_idx_a(tx, ty)] = a_s[_idx_a_s(tx, ty)];
   }
 }
 
-extern "C" void launch_zhetd2_gpu(dim3 *grid,
-                                  dim3 *block,
-                                  const int sharedMem,
-                                  hipStream_t stream,
-                                  int lda,
-                                  hipDoubleComplex *a,
-                                  const int a_n1,
-                                  const int a_n2,
-                                  const int a_lb1,
-                                  const int a_lb2,
-                                  hipDoubleComplex *tau,
-                                  const int tau_n1,
-                                  const int tau_lb1,
-                                  double *d,
-                                  const int d_n1,
-                                  const int d_lb1,
-                                  double *e,
-                                  const int e_n1,
-                                  const int e_lb1,
-                                  int n) {
-  hipLaunchKernelGGL((zhetd2_gpu),
-                     *grid,
-                     *block,
-                     sharedMem,
-                     stream,
-                     lda,
-                     a,
-                     a_n1,
-                     a_n2,
-                     a_lb1,
-                     a_lb2,
-                     tau,
-                     tau_n1,
-                     tau_lb1,
-                     d,
-                     d_n1,
-                     d_lb1,
-                     e,
-                     e_n1,
-                     e_lb1,
-                     n);
-}
+
 // END zhetd2_gpu
