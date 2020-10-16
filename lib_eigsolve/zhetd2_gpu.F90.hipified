@@ -1,0 +1,6 @@
+module zhetd2_gpu
+   use zhetd2_gpu_kernels
+contains
+   ! extracted to HIP C++ file
+
+end module zhetd2_gpu
