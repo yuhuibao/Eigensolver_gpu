@@ -35,7 +35,7 @@ module zhegvdx_gpu_kernels
       integer(c_int),value,intent(IN) :: z_n2
       integer(c_int),value,intent(IN) :: z_lb1
       integer(c_int),value,intent(IN) :: z_lb2
-      INTEGER(kind=),value :: n
+      INTEGER,value :: n
       type(c_ptr),value :: a
       integer(c_int),value,intent(IN) :: a_n1
       integer(c_int),value,intent(IN) :: a_n2
@@ -66,7 +66,7 @@ module zhegvdx_gpu_kernels
       integer(c_int),value,intent(IN) :: z_n2
       integer(c_int),value,intent(IN) :: z_lb1
       integer(c_int),value,intent(IN) :: z_lb2
-      INTEGER(kind=),value :: n
+      INTEGER,value :: n
       type(c_ptr),value :: a
       integer(c_int),value,intent(IN) :: a_n1
       integer(c_int),value,intent(IN) :: a_n2
@@ -76,54 +76,7 @@ module zhegvdx_gpu_kernels
 
   end interface
 
-  contains
-
-    subroutine launch_krnl_959801_0_cpu(sharedMem,&
-        stream,&
-        _z,&
-        z_n1,&
-        z_n2,&
-        z_lb1,&
-        z_lb2,&
-        n,&
-        _a,&
-        a_n1,&
-        a_n2,&
-        a_lb1,&
-        a_lb2)
-      use iso_c_binding
-      use hip
-      implicit none
-      integer(c_int),intent(IN) :: sharedMem
-      type(c_ptr),value,intent(IN) :: stream
-      type(c_ptr),value :: _z
-      integer(c_int),value,intent(IN) :: z_n1
-      integer(c_int),value,intent(IN) :: z_n2
-      integer(c_int),value,intent(IN) :: z_lb1
-      integer(c_int),value,intent(IN) :: z_lb2
-      INTEGER(kind=),value :: n
-      type(c_ptr),value :: _a
-      integer(c_int),value,intent(IN) :: a_n1
-      integer(c_int),value,intent(IN) :: a_n2
-      integer(c_int),value,intent(IN) :: a_lb1
-      integer(c_int),value,intent(IN) :: a_lb2
-      INTEGER(kind=) :: i
-            complex(8), 1:N),target :: z(z_n1,z_n2)
-            complex(8), 1:N),target :: a(a_n1,a_n2)
-      INTEGER(kind=) :: j
-      CALL hipCheck(hipMemcpy(c_loc(z),_z,C_SIZEOF(z),hipMemcpyDeviceToHost))
-      CALL hipCheck(hipMemcpy(c_loc(a),_a,C_SIZEOF(a),hipMemcpyDeviceToHost))
-      do j = 1, N
-      do i = 1, N
-      if (i > j) then
-         Z(i, j) = A(i, j)
-      endif
-      end do
-      end do
-      CALL hipCheck(hipMemcpy(_z,c_loc(z),C_SIZEOF(z),hipMemcpyHostToDevice))
-      CALL hipCheck(hipMemcpy(_a,c_loc(a),C_SIZEOF(a),hipMemcpyHostToDevice))
-
-    end subroutine
+  
 
 
 end module zhegvdx_gpu_kernels

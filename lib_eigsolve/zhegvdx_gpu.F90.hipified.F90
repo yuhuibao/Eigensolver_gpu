@@ -80,44 +80,66 @@ contains
       use zhegvdx_gpu_kernels
       use eigsolve_vars
 
-      use nvtx_inters
       use zhegst_gpu
       use zheevd_gpu
       implicit none
       integer                                     :: N, m, lda, ldb, ldz, il, iu, ldz_h, info, nb
       integer                                     :: lwork_h, lrwork_h, liwork_h, lwork, lrwork, liwork, istat
-      type(c_ptr) :: rwork = c_null_ptr
-      integer(c_int) :: rwork_n1 = lrwork, rwork_lb1 = 1
-      type(c_ptr) :: rwork_h = c_null_ptr
-      integer(c_int) :: rwork_h_n1 = lrwork_h, rwork_h_lb1 = 1
-      type(c_ptr) :: work = c_null_ptr
-      integer(c_int) :: work_n1 = lwork, work_lb1 = 1
-      type(c_ptr) :: work_h = c_null_ptr
-      integer(c_int) :: work_h_n1 = lwork_h, work_h_lb1 = 1
-      type(c_ptr) :: iwork_h = c_null_ptr
-      integer(c_int) :: iwork_h_n1 = liwork_h, iwork_h_lb1 = 1
+      
+      type(c_ptr), value :: work
+      integer(c_int) :: work_n1, work_lb1
 
+      type(c_ptr), value :: work_h
+      integer(c_int) :: work_h_n1, work_h_lb1
+      
+      type(c_ptr), value :: rwork
+    
+      integer(c_int) :: rwork_n1, rwork_lb1
+
+      type(c_ptr), value :: rwork_h
+      integer(c_int) :: rwork_h_n1, rwork_h_lb1
+
+      type(c_ptr), value :: iwork_h
+      integer(c_int) :: iwork_h_n1, iwork_h_lb1
       logical, optional                           :: _skip_host_copy
 
-      type(c_ptr) :: A = c_null_ptr
-      integer(c_int) :: A_n1 = lda, A_n2 = N, A_lb1 = 1, A_lb2 = 1
-      type(c_ptr) :: B = c_null_ptr
-      integer(c_int) :: B_n1 = ldb, B_n2 = N, B_lb1 = 1, B_lb2 = 1
-      type(c_ptr) :: Z = c_null_ptr
-      integer(c_int) :: Z_n1 = ldz, Z_n2 = N, Z_lb1 = 1, Z_lb2 = 1
-      type(c_ptr) :: Z_h = c_null_ptr
-      integer(c_int) :: Z_h_n1 = ldz_h, Z_h_n2 = N, Z_h_lb1 = 1, Z_h_lb2 = 1
-      type(c_ptr) :: w = c_null_ptr
-      integer(c_int) :: w_n1 = N, w_lb1 = 1
-      type(c_ptr) :: w_h = c_null_ptr
-      integer(c_int) :: w_h_n1 = N, w_h_lb1 = 1
+      type(c_ptr), value :: A
+        integer(c_int) :: A_n1, A_n2, A_lb1 = 1, A_lb2 = 1
+        type(c_ptr), value :: B
+        integer(c_int) :: B_n1, B_n2, B_lb1 = 1, B_lb2 = 1
+        type(c_ptr), value :: Z
+        integer(c_int) :: Z_n1, Z_n2, Z_lb1 = 1, Z_lb2 = 1
+        type(c_ptr), value :: Z_h
+        integer(c_int) :: Z_h_n1, Z_h_n2, Z_h_lb1 = 1, Z_h_lb2 = 1
+        type(c_ptr), value :: w
+        integer(c_int) :: w_n1, w_lb1 = 1
+        type(c_ptr), value :: w_h
+        integer(c_int) :: w_h_n1, w_h_lb1 = 1
 
       complex(8), parameter :: cone = cmplx(1, 0, 8)
       integer :: i, j
       logical :: skip_host_copy
-
-      type(c_ptr) :: hipblasHandle = c_null_ptr
-
+      work_n1 = lwork
+      work_lb1 = 1
+      work_h_n1 = lwork_h
+      work_h_lb1 = 1
+      rwork_n1 = lrwork
+      rwork_lb1 = 1
+      rwork_h_n1 = lrwork_h
+      rwork_h_lb1 = 1
+      iwork_h_n1 = liwork_h
+      iwork_h_lb1 = 1
+      A_n1 = lda
+      A_n2 = N
+      B_n1 = ldb
+      B_n2 = N
+      Z_n1 = ldz
+      Z_n2 = N
+      info = 0
+      Z_h_n1 = ldz_h
+      Z_h_n2 = N
+      w_n1 = N
+      w_h_n1 = N
       info = 0
       skip_host_copy = .FALSE.
       if (present(_skip_host_copy)) skip_host_copy = _skip_host_copy
@@ -150,10 +172,8 @@ contains
       if (initialized == 0) call init_eigsolve_gpu
 
       ! Compute cholesky factorization of B
-      call nvtxStartRange("cusolverdnZpotrf", 0)
       istat = cusolverDnZpotrf(cusolverHandle, HIPBLAS_FILL_modE_UPPER, N, B, ldb, work, lwork, devInfo_d)
       istat = devInfo_d
-      call nvtxEndRange
       if (istat .ne. 0) then
          print *, "zhegvdx_gpu error: cusolverDnZpotrf failed!"
          info = -1
@@ -167,23 +187,18 @@ contains
 
       ! Reduce to standard eigenproblem
       nb = 448
-      call nvtxStartRange("zhegst_gpu", 1)
       call zhegst_gpu(1, 'U', N, A, lda, B, ldb, nb)
-      call nvtxEndRange
 
       ! Tridiagonalize and compute eigenvalues/vectors
-      call nvtxStartRange("zheevd_gpu", 2)
       call zheevd_gpu('V', 'U', il, iu, N, A, lda, Z, ldz, w, work, lwork, rwork, lrwork, &
                       work_h, lwork_h, rwork_h, lrwork_h, iwork_h, liwork_h, Z_h, ldz_h, w_h, info)
-      call nvtxEndRange
 
       ! Triangle solve to get eigenvectors for original general eigenproblem
-      call nvtxStartRange("cublasZtrsm", 3)
-      hipblasCreate(hipblasHandle)
       call hipblasZtrsm(hipblasHandle, L, U, HIPBLAS_OP_N, HIPBLAS_OP_N, N, (iu - il + 1), cone, B, ldb, Z, ldz)
-      hipblasDestroy(hipblasHandle)
-
-      call nvtxEndRange
+#undef _idx_Z
+#define _idx_Z(a,b) ((a-(Z_lb1))+Z_n1*(b-(Z_lb2)))
+#undef _idx_Z_h
+#define _idx_Z_h(a,b) ((a-(Z_h_lb1))+Z_h_n1*(b-(Z_h_lb2)))
 
       ! Copy final eigenvectors to host
       if (not(skip_host_copy)) then
