@@ -222,7 +222,7 @@ extern "C" void launch_krnl_b1ccc1_1_auto(const int sharedMem,
                                           const int v_lb1,
                                           const int v_lb2) {
   const unsigned int krnl_b1ccc1_1_NX = k;
-  const unsigned int krnl_b1ccc1_1_NY = n;
+  const unsigned int krnl_b1ccc1_1_NY = k;
 
   const unsigned int krnl_b1ccc1_1_blockX = 16;
   const unsigned int krnl_b1ccc1_1_blockY = 16;
@@ -314,7 +314,7 @@ extern "C" void launch_krnl_b95769_2_auto(const int sharedMem,
                                           const int v_lb1,
                                           const int v_lb2) {
   const unsigned int krnl_b95769_2_NX = k;
-  const unsigned int krnl_b95769_2_NY = m;
+  const unsigned int krnl_b95769_2_NY = k;
 
   const unsigned int krnl_b95769_2_blockX = 16;
   const unsigned int krnl_b95769_2_blockY = 16;
@@ -408,11 +408,12 @@ __global__ void finish_t_block_kernel(int n,
 #define _idx_t(a, b) ((a - (t_lb1)) + t_n1 * (b - (t_lb2)))
 #undef _idx_tau
 #define _idx_tau(a) ((a - (tau_lb1)))
+#undef _idx_t_s
+#define _idx_t_s(a) (a - 1)
 
   // ! T_s contains only lower triangular elements of T in linear array, by row
   __shared__ hipDoubleComplex t_s[2080]; /* Fortran qualifiers: dimension(2080),SHARED */
-  // ! (i,j) --> ((i-1)*i/2 + j)
-  // ! TODO could not parse: #define ij2tri(i,j) (ishft((i-1)*i,-1) + j)
+#define IJ2TRI(i, j) ((((i - 1) * i) >> 1) + j)
   int tid;
   int tx;
   int ty;
@@ -421,40 +422,45 @@ __global__ void finish_t_block_kernel(int n,
   int k;
   int diag;
   hipDoubleComplex cv;
-  tx = threadIdx.x;
-  ty = threadIdx.y;
-  tid = ((threadIdx.y - 1) * blockDim.x + tx);
+  tx = threadIdx.x + 1;
+  ty = threadIdx.y + 1;
+  tid = ((threadIdx.y) * blockDim.x + tx);
   // ! Linear thread id
   // ! Load T into shared memory
   if ((tx <= n)) {
     for (int j = ty; j <= n; j += blockDim.y) {
       cv = tau[_idx_tau(j)];
       if ((tx > j)) {
-        t_s[_idx_t_s(ij2tri[_idx_ij2tri(tx, j)])] = (-cv * t[_idx_t(tx, j)]);
+        t_s[_idx_t_s(IJ2TRI(tx, j))] = (-cv * t[_idx_t(tx, j)]);
 
-      } else if ((tx == j)) {
-        t_s[_idx_t_s(ij2tri[_idx_ij2tri(tx, j)])] = cv;
+      } else if (tx == j) {
+        t_s[_idx_t_s(IJ2TRI(tx, j))] = cv;
       }
     }
   }
-  __syncthreads() // ! Perform column by column update by first thread column
+  __syncthreads();
+   // ! Perform column by column update by first thread column
       for (int i = (n - 1); i <= 1; i += -1) {
-    if ((ty == 1)) {
+    if (ty == 1) {
       if ((tx > i & tx <= n)) {
         cv = make_floatComplex(0, 0);
         for (int j = (i + 1); j <= tx; j += 1) {
-          cv = (cv + t_s[_idx_t_s(ij2tri[_idx_ij2tri(j, i)])] * t_s[_idx_t_s(ij2tri[_idx_ij2tri(tx, j)])]);
+          cv = cv + t_s[_idx_t_s(IJ2TRI(j, i))] * t_s[_idx_t_s(IJ2TRI(tx, j))];
         }
       }
     }
-    __syncthreads() if ((ty == 1 & tx > i & tx <= n)) { t_s[_idx_t_s(ij2tri[_idx_ij2tri(tx, i)])] = cv; }
-    __syncthreads()
+    __syncthreads();
+     if ((ty == 1 & tx > i & tx <= n)) { 
+        t_s[_idx_t_s(IJ2TRI(tx, i))] = cv;
+     }
+
+    __syncthreads();
   }
-  __syncthreads() // ! Write T_s to global
+  __syncthreads(); // ! Write T_s to global
       if ((tx <= n)) {
     for (int j = ty; j <= n; j += blockDim.y) {
       if ((tx >= j)) {
-        t[_idx_t(tx, j)] = t_s[_idx_t_s(ij2tri[_idx_ij2tri(tx, j)])];
+        t[_idx_t(tx, j)] = t_s[_idx_t_s(IJ2TRI(tx, j))];
       }
     }
   }
