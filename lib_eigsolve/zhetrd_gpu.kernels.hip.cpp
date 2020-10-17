@@ -182,176 +182,6 @@ extern "C" void launch_krnl_9c27cb_1_auto(const int sharedMem,
 }
 // END krnl_9c27cb_1
 
-// BEGIN zher2_mv_kernel
-/* Fortran original:
-      implicit none
-      integer, value                                        :: N, M, ldv, ldw, ldw2
-      complex(8), dimension(1:ldv, 1:M), device, intent(in) :: V
-      complex(8), dimension(1:ldw, 1:M), device, intent(in) :: W
-      complex(8), dimension(1:ldw2, 2), device               :: W2
-      !DIR$ IGNORE_TKR x
-      real(8), dimension(1:2*N), device                     :: x
-
-      integer                                               :: i, j, istat
-      complex(8)                                            :: val
-      real(8)                                               :: rv, iv
-
-      i = (blockIdx%x - 1)*blockDim%x + threadIdx%x
-      j = (blockIdx%y - 1)*blockDim%y + threadIdx%y
-
-      if (i <= N .and. j <= M) then
-
-         val = -conjg(W(N, j))*V(i, j) - conjg(V(N, j))*W(i, j)
-         rv = dble(val)
-         iv = dimag(val)
-
-         ! Zero out imaginary part on diagonal
-         if (i == N) then
-            iv = 0.d0
-         endif
-
-         ! Update x
-         istat = atomicadd(x(2*i - 1), rv)
-         istat = atomicadd(x(2*i), iv)
-      endif
-
-      if (threadIdx%y == 1) then
-         ! Zero out column for zhemv call
-         if (i <= N) W2(i, 1) = 0
-         ! Zero out workspace for intermediate zgemv results
-         if (i <= M) then
-            W2(N + i, 1) = 0
-            W2(N + i, 2) = 0
-         endif
-      endif
-
-
-*/
-
-__global__ void zher2_mv_kernel(int n,
-                                int m,
-                                int ldv,
-                                int ldw,
-                                int ldw2,
-                                hipDoubleComplex *v,
-                                const int v_n1,
-                                const int v_n2,
-                                const int v_lb1,
-                                const int v_lb2,
-                                hipDoubleComplex *w,
-                                const int w_n1,
-                                const int w_n2,
-                                const int w_lb1,
-                                const int w_lb2,
-                                hipDoubleComplex *w2,
-                                const int w2_n1,
-                                const int w2_n2,
-                                const int w2_lb1,
-                                const int w2_lb2,
-                                double *x,
-                                const int x_n1,
-                                const int x_lb1) {
-#undef _idx_v
-#define _idx_v(a, b) ((a - (v_lb1)) + v_n1 * (b - (v_lb2)))
-#undef _idx_w
-#define _idx_w(a, b) ((a - (w_lb1)) + w_n1 * (b - (w_lb2)))
-#undef _idx_w2
-#define _idx_w2(a, b) ((a - (w2_lb1)) + w2_n1 * (b - (w2_lb2)))
-#undef _idx_x
-#define _idx_x(a) ((a - (x_lb1)))
-
-  // !DIR$ IGNORE_TKR x
-  int i;
-  int j;
-  int istat;
-  hipDoubleComplex val;
-  double rv;
-  double iv;
-  i = ((blockIdx.x - 1) * blockDim.x + threadIdx.x);
-  j = ((blockIdx.y - 1) * blockDim.y + threadIdx.y);
-  if ((i <= n & j <= m)) {
-    val = (-conj(w[_idx_w(n, j)]) * v[_idx_v(i, j)] - conj(v[_idx_v(n, j)]) * w[_idx_w(i, j)]);
-    rv = make_double(val);
-    iv = dimag[_idx_dimag(val)];
-    // ! Zero out imaginary part on diagonal
-    if ((i == n)) {
-      iv = 0.e0;
-    }
-    // ! Update x
-    istat = atomicAdd(x[_idx_x((2 * i - 1))], rv);
-    istat = atomicAdd(x[_idx_x((2 * i))], iv);
-  }
-  if ((threadIdx.y == 1)) {
-    // ! Zero out column for zhemv call
-    if ((i <= n)) {
-      w2[_idx_w2(i, 1)] = 0;
-
-    } // ! Zero out workspace for intermediate zgemv results
-    if ((i <= m)) {
-      w2[_idx_w2((n + i), 1)] = 0;
-      w2[_idx_w2((n + i), 2)] = 0;
-    }
-  }
-}
-
-extern "C" void launch_zher2_mv_kernel(dim3 *grid,
-                                       dim3 *block,
-                                       const int sharedMem,
-                                       hipStream_t stream,
-                                       int n,
-                                       int m,
-                                       int ldv,
-                                       int ldw,
-                                       int ldw2,
-                                       hipDoubleComplex *v,
-                                       const int v_n1,
-                                       const int v_n2,
-                                       const int v_lb1,
-                                       const int v_lb2,
-                                       hipDoubleComplex *w,
-                                       const int w_n1,
-                                       const int w_n2,
-                                       const int w_lb1,
-                                       const int w_lb2,
-                                       hipDoubleComplex *w2,
-                                       const int w2_n1,
-                                       const int w2_n2,
-                                       const int w2_lb1,
-                                       const int w2_lb2,
-                                       double *x,
-                                       const int x_n1,
-                                       const int x_lb1) {
-  hipLaunchKernelGGL((zher2_mv_kernel),
-                     *grid,
-                     *block,
-                     sharedMem,
-                     stream,
-                     n,
-                     m,
-                     ldv,
-                     ldw,
-                     ldw2,
-                     v,
-                     v_n1,
-                     v_n2,
-                     v_lb1,
-                     v_lb2,
-                     w,
-                     w_n1,
-                     w_n2,
-                     w_lb1,
-                     w_lb2,
-                     w2,
-                     w2_n1,
-                     w2_n2,
-                     w2_lb1,
-                     w2_lb2,
-                     x,
-                     x_n1,
-                     x_lb1);
-}
-// END zher2_mv_kernel
-
 // BEGIN zlarfg_kernel
 /* Fortran original:
       implicit none
@@ -500,16 +330,17 @@ __global__ void zlarfg_kernel(int n, hipDoubleComplex tau, double e, hipDoubleCo
   hipDoubleComplex cv1;
   __shared__ double xnorm;             /* Fortran qualifiers: SHARED */
   __shared__ hipDoubleComplex alpha_s; /* Fortran qualifiers: SHARED */
-  tid = threadIdx.x;
-  laneid = iand(tid, 31);
-  if ((tid == 1)) {
+  tid = threadIdx.x + 1;
+  laneid = tid & 31;
+  if (tid == 1) {
     alpha_s = x[_idx_x(n)];
     xnorm = 0.0 /*_8*/;
   }
-  __syncthreads() alphar = make_double(alpha_s);
+  __syncthreads();
+  alphar = make_double(alpha_s);
   alphai = dimag[_idx_dimag(alpha_s)];
   rsum = 0.0 /*_8*/;
-  nb = ceiling((make_float(n) / blockDim.x));
+  nb = ceil((float(n) / blockDim.x));
   // ! number of blocks down column
   i = tid;
   for (int j = 1; j <= nb; j += 1) {
@@ -517,7 +348,7 @@ __global__ void zlarfg_kernel(int n, hipDoubleComplex tau, double e, hipDoubleCo
     if ((i <= (n - 1))) {
       cv1 = x[_idx_x(i)];
       rv2 = make_double(cv1);
-      rv3 = dimag[_idx_dimag(cv1)];
+      rv3 = dimag(cv1);
       rv1 = (rv2 * rv2 + rv3 * rv3);
 
     } else {
@@ -538,15 +369,16 @@ __global__ void zlarfg_kernel(int n, hipDoubleComplex tau, double e, hipDoubleCo
   rv1 = (rv1 + rv2);
   rv2 = __shfl_down(rv1, 16);
   rv1 = (rv1 + rv2);
-  if ((laneid == 1)) {
+  if (laneid == 1) {
     istat = atomicAdd(xnorm, rv1);
   }
-  __syncthreads() if ((xnorm == 0.0 /*_8*/ & alphai == 0.0 /*_8*/)) {
-    if ((tid == 1)) {
+  __syncthreads();
+  if (xnorm == 0.0 /*_8*/ & alphai == 0.0 /*_8*/) {
+    if (tid == 1) {
       tau = 0.0 /*_8*/;
     }
-  }
-  else if ((tid == 1)) {
+  }else {
+    if (tid == 1) {
     xnorm = sqrt(xnorm);
     rv1 = abs(alphar);
     rv2 = abs(alphai);
@@ -574,18 +406,21 @@ __global__ void zlarfg_kernel(int n, hipDoubleComplex tau, double e, hipDoubleCo
     e = beta;
     // ! store beta in e vector
   }
-  __syncthreads() for (int i = tid; i <= n; i += blockDim.x) {
+  __syncthreads(); 
+  
+  for (int i = tid; i <= n; i += blockDim.x) {
     cv1 = x[_idx_x(i)];
     if ((i <= (n - 1))) {
       cv1 = (alpha_s * cv1);
 
-    } else if ((i == n)) {
+    } else if (i == n){
       // !x(i) = 1.0_8
       cv1 = make_doubleComplex(1.0 /*_8*/, 0.0 /*_8*/);
     }
     x[_idx_x(i)] = cv1;
 
-  } // ! TODO could not parse:        endif
+  } 
+}
 }
 
 extern "C" void launch_zlarfg_kernel(dim3 *grid,
@@ -789,17 +624,14 @@ __global__ void zher2_mv_zlarfg_kernel(int n,
                                        int ldw2,
                                        hipDoubleComplex *v,
                                        const int v_n1,
-                                       const int v_n2,
                                        const int v_lb1,
                                        const int v_lb2,
                                        hipDoubleComplex *w,
                                        const int w_n1,
-                                       const int w_n2,
                                        const int w_lb1,
                                        const int w_lb2,
                                        hipDoubleComplex *w2,
                                        const int w2_n1,
-                                       const int w2_n2,
                                        const int w2_lb1,
                                        const int w2_lb2,
                                        double *x,
@@ -849,25 +681,25 @@ __global__ void zher2_mv_zlarfg_kernel(int n,
   hipDoubleComplex cv1;
   __shared__ double xnorm;             /* Fortran qualifiers: SHARED */
   __shared__ hipDoubleComplex alpha_s; /* Fortran qualifiers: SHARED */
-  tx = threadIdx.x;
-  ty = threadIdx.y;
-  i = ((blockIdx.x - 1) * blockDim.x + tx);
-  j = ((blockIdx.y - 1) * blockDim.y + ty);
+  tx = threadIdx.x + 1;
+  ty = threadIdx.y + 1;
+  i = ((blockIdx.x) * blockDim.x + tx);
+  j = ((blockIdx.y) * blockDim.y + ty);
   nblocks = (gridDim.x * gridDim.y);
   // !if (i > N .or. j > M) return
   if ((i <= n & j <= m)) {
     val = (-conj(w[_idx_w(n, j)]) * v[_idx_v(i, j)] - conj(v[_idx_v(n, j)]) * w[_idx_w(i, j)]);
     rv = make_double(val);
-    iv = dimag[_idx_dimag(val)];
+    iv = dimag(val);
     // ! Zero out imaginary part on diagonal
-    if ((i == n)) {
+    if (i == n) {
       iv = 0.e0;
     }
     // ! Update x
     istat = atomicAdd(x[_idx_x((2 * i - 1))], rv);
     istat = atomicAdd(x[_idx_x((2 * i))], iv);
   }
-  if ((ty == 1)) {
+  if (ty == 1) {
     // ! Zero out column for zhemv call
     if ((i <= n)) {
       w2[_idx_w2(i, 1)] = 0;
@@ -878,22 +710,30 @@ __global__ void zher2_mv_zlarfg_kernel(int n,
       w2[_idx_w2((n + i), 2)] = 0;
     }
   }
-  threadfence() nfinished = 0;
-  __syncthreads() if (((tx + ty) == 2)) { nfinished = atomicInc(finished, (nblocks - 1)); }
-  __syncthreads() if ((nfinished < (nblocks - 1))) { return; } // ! Begin zlarfg work with last block
+  threadfence();
+  nfinished = 0;
+  __syncthreads();
+  if ((tx + ty) == 2) {
+    nfinished = atomicInc(&finished, (nblocks - 1));
+  }
+  __syncthreads(); 
+  if ((nfinished < (nblocks - 1))) {
+    return; // ! Begin dlarfg work with last block
+  }
   if ((n == 1)) {
     return;
   }
   tid = (tx + (ty - 1) * blockDim.x);
-  laneid = iand(tid, 31);
-  if ((tid == 1)) {
+  laneid = tid & 31;
+  if (tid == 1) {
     alpha_s = x2[_idx_x2((n - 1))];
     xnorm = 0.0 /*_8*/;
   }
-  __syncthreads() alphar = make_double(alpha_s);
-  alphai = dimag[_idx_dimag(alpha_s)];
+  __syncthreads();
+  alphar = make_double(alpha_s);
+  alphai = dimag(alpha_s);
   rsum = 0.0 /*_8*/;
-  nb = ceiling((make_float((n - 1)) / (blockDim.x * blockDim.y)));
+  nb = ceil(float(n - 1) / (blockDim.x * blockDim.y));
   // ! number of blocks down column
   i = tid;
   for (int j = 1; j <= nb; j += 1) {
@@ -901,7 +741,7 @@ __global__ void zher2_mv_zlarfg_kernel(int n,
     if ((i <= (n - 2))) {
       cv1 = x2[_idx_x2(i)];
       rv2 = make_double(cv1);
-      rv3 = dimag[_idx_dimag(cv1)];
+      rv3 = dimag(cv1);
       rv1 = (rv2 * rv2 + rv3 * rv3);
 
     } else {
@@ -923,14 +763,15 @@ __global__ void zher2_mv_zlarfg_kernel(int n,
   rv2 = __shfl_down(rv1, 16);
   rv1 = (rv1 + rv2);
   if ((laneid == 1)) {
-    istat = atomicAdd(xnorm, rv1);
+    istat = atomicAdd(&xnorm, rv1);
   }
-  __syncthreads() if ((xnorm == 0.0 /*_8*/ & alphai == 0.0 /*_8*/)) {
+  __syncthreads();
+  if ((xnorm == 0.0 /*_8*/ & alphai == 0.0 /*_8*/)) {
     if ((tid == 1)) {
       tau = 0.0 /*_8*/;
     }
-  }
-  else if ((tid == 1)) {
+  }else {
+    if (tid == 1) {
     xnorm = sqrt(xnorm);
     rv1 = abs(alphar);
     rv2 = abs(alphai);
@@ -944,7 +785,7 @@ __global__ void zher2_mv_zlarfg_kernel(int n,
     tau = make_doubleComplex(((beta - alphar) / beta), (-alphai / beta));
     // !zladiv
     rv1 = make_double((alpha_s - beta));
-    rv2 = dimag[_idx_dimag((alpha_s - beta))];
+    rv2 = dimag(alpha_s - beta);
     if ((abs(rv2) < abs(rv1))) {
       xnorm = (rv2 / rv1);
       invscal = (1.e0 / (rv1 + rv2 * xnorm));
@@ -958,20 +799,21 @@ __global__ void zher2_mv_zlarfg_kernel(int n,
     e = beta;
     // ! store beta in e vector
   }
-  __syncthreads() for (int i = tid; i <= (n - 1); i += (blockDim.x * blockDim.y)) {
+  __syncthreads();
+  for (int i = tid; i <= (n - 1); i += (blockDim.x * blockDim.y)) {
     cv1 = x2[_idx_x2(i)];
     if ((i <= (n - 2))) {
       cv1 = (alpha_s * cv1);
 
-    } else if ((i == (n - 1))) {
+    } else if (i == (n - 1)) {
       // !x(i) = 1.0_8
       cv1 = make_doubleComplex(1.0 /*_8*/, 0.0 /*_8*/);
     }
     x2[_idx_x2(i)] = cv1;
 
-  } // ! TODO could not parse:        endif
+  } 
 }
-
+                                       }
 extern "C" void launch_zher2_mv_zlarfg_kernel(dim3 *grid,
                                               dim3 *block,
                                               const int sharedMem,
@@ -983,17 +825,14 @@ extern "C" void launch_zher2_mv_zlarfg_kernel(dim3 *grid,
                                               int ldw2,
                                               hipDoubleComplex *v,
                                               const int v_n1,
-                                              const int v_n2,
                                               const int v_lb1,
                                               const int v_lb2,
                                               hipDoubleComplex *w,
                                               const int w_n1,
-                                              const int w_n2,
                                               const int w_lb1,
                                               const int w_lb2,
                                               hipDoubleComplex *w2,
                                               const int w2_n1,
-                                              const int w2_n2,
                                               const int w2_lb1,
                                               const int w2_lb2,
                                               double *x,
@@ -1017,17 +856,14 @@ extern "C" void launch_zher2_mv_zlarfg_kernel(dim3 *grid,
                      ldw2,
                      v,
                      v_n1,
-                     v_n2,
                      v_lb1,
                      v_lb2,
                      w,
                      w_n1,
-                     w_n2,
                      w_lb1,
                      w_lb2,
                      w2,
                      w2_n1,
-                     w2_n2,
                      w2_lb1,
                      w2_lb2,
                      x,
@@ -1155,12 +991,10 @@ __global__ void stacked_zgemv_c(int m,
                                 int ldw,
                                 hipDoubleComplex *v,
                                 const int v_n1,
-                                const int v_n2,
                                 const int v_lb1,
                                 const int v_lb2,
                                 hipDoubleComplex *w,
                                 const int w_n1,
-                                const int w_n2,
                                 const int w_lb1,
                                 const int w_lb2,
                                 hipDoubleComplex *x,
@@ -1199,32 +1033,35 @@ __global__ void stacked_zgemv_c(int m,
   double iv2;
   double xr;
   double xi;
-  tx = threadIdx.x;
-  ty = threadIdx.y;
-  i = ((blockIdx.y - 1) * blockDim.y + ty);
-  j = ((blockIdx.x - 1) * blockDim.x + tx);
+  tx = threadIdx.x + 1;
+  ty = threadIdx.y + 1;
+  i = ((blockIdx.y) * blockDim.y + ty);
+  j = ((blockIdx.x) * blockDim.x + tx);
   // !if (i > 2*M .or. j > N) return
   if ((i > (2 * m))) {
     return;
   }
   val = x[_idx_x(j)];
   xr = make_double(val);
-  xi = dimag[_idx_dimag(val)];
+  xi = dimag(val);
   if ((j > n)) {
     // !val = dcmplx(0,0)
     rv1 = 0.e0;
     iv1 = 0.e0;
 
-  } else if ((i > m)) {
+  } else{
+        if ((i > m)) {
     val = w[_idx_w(j, (i - m))];
 
   } else {
     val = v[_idx_v(j, i)];
   }
   rv2 = make_double(val);
-  iv2 = dimag[_idx_dimag(val)];
+  iv2 = dimag(val);
+  
   rv1 = (rv2 * xr + iv2 * xi);
   iv1 = (rv2 * xi - iv2 * xr);
+  }
   // ! TODO could not parse:        endif
   // !Partial sum within warps using shuffle
   rv2 = __shfl_down(rv1, 1);
@@ -1266,14 +1103,14 @@ __global__ void stacked_zgemv_c(int m,
   // !    istat = atomicAdd(z1(2*(i+tx-1)), i_s(tx))
   // !  endif
   // !endif
-  if ((tx == 1)) {
+  if (tx == 1) {
     if ((i > m)) {
-      istat = atomicAdd(z2[_idx_z2((2 * (i - m) - 1))], rv1);
-      istat = atomicAdd(z2[_idx_z2((2 * (i - m)))], iv1);
+      istat = atomicAdd(z2 + _idx_z2((2 * (i - m) - 1))*8, rv1);
+      istat = atomicAdd(z2 + _idx_z2((2 * (i - m)))*8, iv1);
 
     } else {
-      istat = atomicAdd(z1[_idx_z1((2 * i - 1))], rv1);
-      istat = atomicAdd(z1[_idx_z1((2 * i))], iv1);
+      istat = atomicAdd(z1 + _idx_z1((2 * i - 1))*8, rv1);
+      istat = atomicAdd(z1 + _idx_z1((2 * i))*8, iv1);
     }
   }
   return;
@@ -1317,12 +1154,12 @@ extern "C" void launch_stacked_zgemv_c(dim3 *grid,
                      ldw,
                      v,
                      v_n1,
-                     v_n2,
+                     
                      v_lb1,
                      v_lb2,
                      w,
                      w_n1,
-                     w_n2,
+                     
                      w_lb1,
                      w_lb2,
                      x,
@@ -1337,181 +1174,6 @@ extern "C" void launch_stacked_zgemv_c(dim3 *grid,
 }
 // END stacked_zgemv_c
 
-// BEGIN stacked_zgemv_n
-/* Fortran original:
-      use cudafor
-      implicit none
-      integer, value                                     :: M, N, ldv, ldw
-      complex(8), dimension(ldv, N), device, intent(in)  :: V
-      complex(8), dimension(ldw, N), device, intent(in)  :: W
-      complex(8), dimension(N), device, intent(in)       :: z1, z2
-      !DIR$ IGNORE_TKR y
-      real(8), dimension(2*M), device                    :: y
-
-      integer :: i, j, tx, ty, istat
-      complex(8) :: val1, val2
-      real(8) :: rv1, rv2, iv1, iv2, xr, xi
-
-      tx = threadIdx%x
-      ty = threadIdx%y
-
-      i = (blockIdx%x - 1)*blockDim%x + tx
-      j = (blockIdx%y - 1)*blockDim%y + ty
-
-      if (i > M .or. j > 2*N) return
-
-      if (j > N) then
-         val1 = z2(j - N)
-         val2 = V(i, j - N)
-      else
-         val1 = z1(j)
-         val2 = W(i, j)
-      endif
-      xr = dble(val1); xi = dimag(val1)
-      rv2 = dble(val2); iv2 = dimag(val2)
-
-      rv1 = -rv2*xr + iv2*xi
-      iv1 = -rv2*xi - iv2*xr
-
-      istat = atomicadd(y(2*i - 1), rv1)
-      istat = atomicadd(y(2*i), iv1)
-
-      return
-
-
-*/
-
-__global__ void stacked_zgemv_n(int m,
-                                int n,
-                                int ldv,
-                                int ldw,
-                                hipDoubleComplex *v,
-                                const int v_n1,
-                                const int v_n2,
-                                const int v_lb1,
-                                const int v_lb2,
-                                hipDoubleComplex *w,
-                                const int w_n1,
-                                const int w_n2,
-                                const int w_lb1,
-                                const int w_lb2,
-                                hipDoubleComplex *z1,
-                                const int z1_n1,
-                                const int z1_lb1,
-                                hipDoubleComplex *z2,
-                                const int z2_n1,
-                                const int z2_lb1,
-                                double *y,
-                                const int y_n1,
-                                const int y_lb1) {
-#undef _idx_v
-#define _idx_v(a, b) ((a - (v_lb1)) + v_n1 * (b - (v_lb2)))
-#undef _idx_w
-#define _idx_w(a, b) ((a - (w_lb1)) + w_n1 * (b - (w_lb2)))
-#undef _idx_z1
-#define _idx_z1(a) ((a - (z1_lb1)))
-#undef _idx_z2
-#define _idx_z2(a) ((a - (z2_lb1)))
-#undef _idx_y
-#define _idx_y(a) ((a - (y_lb1)))
-
-  // !DIR$ IGNORE_TKR y
-  int i;
-  int j;
-  int tx;
-  int ty;
-  int istat;
-  hipDoubleComplex val1;
-  hipDoubleComplex val2;
-  double rv1;
-  double rv2;
-  double iv1;
-  double iv2;
-  double xr;
-  double xi;
-  tx = threadIdx.x;
-  ty = threadIdx.y;
-  i = ((blockIdx.x - 1) * blockDim.x + tx);
-  j = ((blockIdx.y - 1) * blockDim.y + ty);
-  if ((i > m | j > (2 * n))) {
-    return;
-  }
-  if ((j > n)) {
-    val1 = z2[_idx_z2((j - n))];
-    val2 = v[_idx_v(i, (j - n))];
-
-  } else {
-    val1 = z1[_idx_z1(j)];
-    val2 = w[_idx_w(i, j)];
-  }
-  xr = make_double(val1);
-  xi = dimag[_idx_dimag(val1)];
-  rv2 = make_double(val2);
-  iv2 = dimag[_idx_dimag(val2)];
-  rv1 = (-rv2 * xr + iv2 * xi);
-  iv1 = (-rv2 * xi - iv2 * xr);
-  istat = atomicAdd(y[_idx_y((2 * i - 1))], rv1);
-  istat = atomicAdd(y[_idx_y((2 * i))], iv1);
-  return;
-}
-
-extern "C" void launch_stacked_zgemv_n(dim3 *grid,
-                                       dim3 *block,
-                                       const int sharedMem,
-                                       hipStream_t stream,
-                                       int m,
-                                       int n,
-                                       int ldv,
-                                       int ldw,
-                                       hipDoubleComplex *v,
-                                       const int v_n1,
-                                       const int v_n2,
-                                       const int v_lb1,
-                                       const int v_lb2,
-                                       hipDoubleComplex *w,
-                                       const int w_n1,
-                                       const int w_n2,
-                                       const int w_lb1,
-                                       const int w_lb2,
-                                       hipDoubleComplex *z1,
-                                       const int z1_n1,
-                                       const int z1_lb1,
-                                       hipDoubleComplex *z2,
-                                       const int z2_n1,
-                                       const int z2_lb1,
-                                       double *y,
-                                       const int y_n1,
-                                       const int y_lb1) {
-  hipLaunchKernelGGL((stacked_zgemv_n),
-                     *grid,
-                     *block,
-                     sharedMem,
-                     stream,
-                     m,
-                     n,
-                     ldv,
-                     ldw,
-                     v,
-                     v_n1,
-                     v_n2,
-                     v_lb1,
-                     v_lb2,
-                     w,
-                     w_n1,
-                     w_n2,
-                     w_lb1,
-                     w_lb2,
-                     z1,
-                     z1_n1,
-                     z1_lb1,
-                     z2,
-                     z2_n1,
-                     z2_lb1,
-                     y,
-                     y_n1,
-                     y_lb1);
-}
-// END stacked_zgemv_n
 
 // BEGIN finish_w_col_kernel
 /* Fortran original:
@@ -1638,32 +1300,43 @@ __global__ void finish_w_col_kernel(int n,
   __shared__ double alphai; /* Fortran qualifiers: SHARED */
   // !complex(8), shared                          :: alpha
   hipDoubleComplex alpha;
-  tid = threadIdx.x;
-  laneid = iand(tid, 31);
-  if ((tid == 1)) {
+  tid = threadIdx.x + 1;
+  laneid = tid & 31;
+  if (tid == 1) {
     alphar = 0.0 /*_8*/;
     alphai = 0.0 /*_8*/;
   }
-  __syncthreads() rsum = 0.0 /*_8*/;
+  __syncthreads();
+  rsum = 0.0 /*_8*/;
   isum = 0.0 /*_8*/;
   mytau = tau;
-  nb = ceiling((make_float(n) / blockDim.x));
+  nb = ceil((float(n) / blockDim.x));
   // ! number of blocks down column
   i = tid;
   // ! TODO could not parse:        do j = 1, nb
   // ! All threads perform their product, zero if out of bounds
   // ! TODO could not parse:           if (i <= n) then
-  val = (conj((mytau * y[_idx_y(i)])) * x[_idx_x(i)]);
+  
   // ! TODO could not parse:           else
   // ! TODO could not parse:              val = dcmplx(0., 0.)
   // ! TODO could not parse:           endif
-  rv1 = make_double(val);
-  iv1 = dimag[_idx_dimag(val)];
+  
+  // ! TODO could not parse:        end do
+  for (int j = 1; j <= nb; j += 1) {
+    // ! All threads perform their product, zero if out of bounds
+    if ((i <= n)) {
+      val = (dconj((mytau * y[_idx_y(i)])) * x[_idx_x(i)]);
+
+    } else {
+      val = make_doubleComplex(0, 0);
+    }
+    rv1 = make_double(val);
+  iv1 = dimag(val);
   rsum = (rsum + rv1);
   isum = (isum + iv1);
   i = (i + blockDim.x);
-  // ! TODO could not parse:        end do
-  // ! Partial sum within warps using shuffle
+
+  } // ! Partial sum within warps using shuffle
   rv1 = rsum;
   rv2 = __shfl_down(rv1, 1);
   rv1 = (rv1 + rv2);
@@ -1686,11 +1359,12 @@ __global__ void finish_w_col_kernel(int n,
   iv1 = (iv1 + iv2);
   iv2 = __shfl_down(iv1, 16);
   iv1 = (iv1 + iv2);
-  if ((laneid == 1)) {
-    istat = atomicAdd(alphar, rv1);
-    istat = atomicAdd(alphai, iv1);
+  if (laneid == 1) {
+    istat = atomicAdd(&alphar, rv1);
+    istat = atomicAdd(&alphai, iv1);
   }
-  __syncthreads() alpha = (-make_doubleComplex(0.5, 0.0) * mytau * make_doubleComplex(alphar, alphai));
+  __syncthreads();
+  alpha = (-make_doubleComplex(0.5, 0.0) * mytau * make_doubleComplex(alphar, alphai));
   for (int i = tid; i <= n; i += blockDim.x) {
     y[_idx_y(i)] = (mytau * y[_idx_y(i)] + alpha * x[_idx_x(i)]);
     // !zaxpy
@@ -1852,12 +1526,10 @@ __global__ void stacked_zgemv_n_finish_w(int m,
                                          int ldw,
                                          hipDoubleComplex *v,
                                          const int v_n1,
-                                         const int v_n2,
                                          const int v_lb1,
                                          const int v_lb2,
                                          hipDoubleComplex *w,
                                          const int w_n1,
-                                         const int w_n2,
                                          const int w_lb1,
                                          const int w_lb2,
                                          hipDoubleComplex *z1,
@@ -1917,10 +1589,10 @@ __global__ void stacked_zgemv_n_finish_w(int m,
   double isum;
   __shared__ double alphar; /* Fortran qualifiers: SHARED */
   __shared__ double alphai; /* Fortran qualifiers: SHARED */
-  tx = threadIdx.x;
-  ty = threadIdx.y;
-  i = ((blockIdx.x - 1) * blockDim.x + tx);
-  j = ((blockIdx.y - 1) * blockDim.y + ty);
+  tx = threadIdx.x + 1;
+  ty = threadIdx.y + 1;
+  i = ((blockIdx.x) * blockDim.x + tx);
+  j = ((blockIdx.y) * blockDim.y + ty);
   nblocks = (gridDim.x * gridDim.y);
   if ((i <= m & j <= (2 * n))) {
     if ((j > n)) {
@@ -1932,43 +1604,53 @@ __global__ void stacked_zgemv_n_finish_w(int m,
       val2 = w[_idx_w(i, j)];
     }
     xr = make_double(val1);
-    xi = dimag[_idx_dimag(val1)];
+    xi = dimag(val1);
     rv2 = make_double(val2);
-    iv2 = dimag[_idx_dimag(val2)];
+    iv2 = dimag(val2);
     rv1 = (-rv2 * xr + iv2 * xi);
     iv1 = (-rv2 * xi - iv2 * xr);
-    istat = atomicAdd(y[_idx_y((2 * i - 1))], rv1);
-    istat = atomicAdd(y[_idx_y((2 * i))], iv1);
+    istat = atomicAdd(y + _idx_y((2 * i - 1))*8, rv1);
+    istat = atomicAdd(y + _idx_y((2 * i))*8, iv1);
   }
-  threadfence() nfinished = 0;
-  __syncthreads() if (((tx + ty) == 2)) { nfinished = atomicInc(finished, (nblocks - 1)); }
-  __syncthreads() if ((nfinished < (nblocks - 1))) { return; } // ! Begin finish_W_col work with last block
-  tid = (threadIdx.x + (threadIdx.y - 1) * blockDim.x);
-  laneid = iand(tid, 31);
-  if ((tid == 1)) {
+  threadfence();
+  nfinished = 0;
+  __syncthreads();
+  if ((tx + ty) == 2) {
+    nfinished = atomicInc(&finished, (nblocks - 1));
+  }
+  __syncthreads();
+  if ((nfinished < (nblocks - 1))) { 
+      return; 
+  } // ! Begin finish_W_col work with last block
+  tid = threadIdx.x + (threadIdx.y) * blockDim.x + 1;
+  laneid = tid & 31;
+  if (tid == 1) {
     alphar = 0.0 /*_8*/;
     alphai = 0.0 /*_8*/;
   }
-  __syncthreads() rsum = 0.0 /*_8*/;
+  __syncthreads();
+  rsum = 0.0 /*_8*/;
   isum = 0.0 /*_8*/;
   mytau = tau;
-  nb = ceiling((make_float(m) / (blockDim.x * blockDim.y)));
+  nb = ceil((float(m) / (blockDim.x * blockDim.y)));
   // ! number of blocks down column
   i = tid;
-  // ! TODO could not parse:        do j = 1, nb
-  // ! All threads perform their product, zero if out of bounds
-  // ! TODO could not parse:           if (i <= m) then
-  val1 = (conj((mytau * y2[_idx_y2(i)])) * x[_idx_x(i)]);
-  // ! TODO could not parse:           else
-  // ! TODO could not parse:              val1 = dcmplx(0., 0.)
-  // ! TODO could not parse:           endif
-  rv1 = make_double(val1);
-  iv1 = dimag[_idx_dimag(val1)];
+  
+  for (int j = 1; j <= nb; j += 1) {
+    // ! All threads perform their product, zero if out of bounds
+    if ((i <= m)) {
+      val1 = (dconj((mytau * y2[_idx_y2(i)])) * x[_idx_x(i)]);
+
+    } else {
+      val1 = make_doubleComplex(0, 0);
+    }
+    rv1 = make_double(val1);
+  iv1 = dimag(val1);
   rsum = (rsum + rv1);
   isum = (isum + iv1);
-  i = (i + blockDim.x * blockDim.y);
-  // ! TODO could not parse:        end do
-  // ! Partial sum within warps using shuffle
+  i = (i + blockDim.x* blockDim.y);
+
+  }// ! Partial sum within warps using shuffle
   rv1 = rsum;
   rv2 = __shfl_down(rv1, 1);
   rv1 = (rv1 + rv2);
@@ -1991,11 +1673,12 @@ __global__ void stacked_zgemv_n_finish_w(int m,
   iv1 = (iv1 + iv2);
   iv2 = __shfl_down(iv1, 16);
   iv1 = (iv1 + iv2);
-  if ((laneid == 1)) {
-    istat = atomicAdd(alphar, rv1);
-    istat = atomicAdd(alphai, iv1);
+  if (laneid == 1) {
+    istat = atomicAdd(&alphar, rv1);
+    istat = atomicAdd(&alphai, iv1);
   }
-  __syncthreads() alpha = (-make_doubleComplex(0.5, 0.0) * mytau * make_doubleComplex(alphar, alphai));
+  __syncthreads();
+  alpha = (-make_doubleComplex(0.5, 0.0) * mytau * make_doubleComplex(alphar, alphai));
   for (int i = tid; i <= m; i += (blockDim.x * blockDim.y)) {
     y2[_idx_y2(i)] = (mytau * y2[_idx_y2(i)] + alpha * x[_idx_x(i)]);
     // !zaxpy
@@ -2012,12 +1695,10 @@ extern "C" void launch_stacked_zgemv_n_finish_w(dim3 *grid,
                                                 int ldw,
                                                 hipDoubleComplex *v,
                                                 const int v_n1,
-                                                const int v_n2,
                                                 const int v_lb1,
                                                 const int v_lb2,
                                                 hipDoubleComplex *w,
                                                 const int w_n1,
-                                                const int w_n2,
                                                 const int w_lb1,
                                                 const int w_lb2,
                                                 hipDoubleComplex *z1,
@@ -2048,12 +1729,10 @@ extern "C" void launch_stacked_zgemv_n_finish_w(dim3 *grid,
                      ldw,
                      v,
                      v_n1,
-                     v_n2,
                      v_lb1,
                      v_lb2,
                      w,
                      w_n1,
-                     w_n2,
                      w_lb1,
                      w_lb2,
                      z1,
