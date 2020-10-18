@@ -37,10 +37,11 @@ double make_double(float a) { return static_cast<double>(a); }
 double make_double(double a) { return static_cast<double>(a); }
 double make_double(long double a) { return static_cast<double>(a); }
 double make_double(hipFloatComplex &a) { return static_cast<double>(a.x); }
-double make_double(hipDoubleComplex &a) { return static_cast<double>(a.x); }
+__device__ double make_double(hipDoubleComplex &a) { return static_cast<double>(a.x); }
 // conjugate complex type
 hipFloatComplex conj(hipFloatComplex &c) { return hipConjf(c); }
-hipDoubleComplex conj(hipDoubleComplex &z) { return hipConj(z); }
+__device__ hipDoubleComplex conj(hipDoubleComplex &z) { return hipConj(z); }
+__device__ double dimag(hipDoubleComplex &a) { return static_cast<double>(a.y); }
 
 // TODO Add the following functions:
 // - sign(x,y) = sign(y) * |x| - sign transfer function
@@ -81,7 +82,7 @@ __global__ void krnl_2b8e8f_0(hipDoubleComplex *a,
   unsigned int j = 33 + threadIdx.x + blockIdx.x * blockDim.x;
   if ((j <= n)) {
     // !A(j-1, j) = e(j-1) ! JR Not strictly needed so skipping this copy
-    d[_idx_d(j)] = a[_idx_a(j, j)];
+    d[_idx_d(j)] = make_double(a[_idx_a(j, j)]);
   }
 }
 
@@ -144,7 +145,7 @@ __global__ void krnl_9c27cb_1(int iw, hipDoubleComplex *w, const int w_n1, const
 
   unsigned int k = 1 + threadIdx.x + blockIdx.x * blockDim.x;
   if ((k <= (n - 1))) {
-    w[_idx_w(k, iw)] = make_doubleComplex(0, 0);
+    w[_idx_w(k, iw)] = make_hipDoubleComplex(0, 0);
   }
 }
 
@@ -330,6 +331,7 @@ __global__ void zlarfg_kernel(int n, hipDoubleComplex tau, double e, hipDoubleCo
   hipDoubleComplex cv1;
   __shared__ double xnorm;             /* Fortran qualifiers: SHARED */
   __shared__ hipDoubleComplex alpha_s; /* Fortran qualifiers: SHARED */
+  __shared__ hipDoubleComplex tmp0;
   tid = threadIdx.x + 1;
   laneid = tid & 31;
   if (tid == 1) {
@@ -338,7 +340,7 @@ __global__ void zlarfg_kernel(int n, hipDoubleComplex tau, double e, hipDoubleCo
   }
   __syncthreads();
   alphar = make_double(alpha_s);
-  alphai = dimag[_idx_dimag(alpha_s)];
+  alphai = dimag(alpha_s);
   rsum = 0.0 /*_8*/;
   nb = ceil((float(n) / blockDim.x));
   // ! number of blocks down column
@@ -370,12 +372,12 @@ __global__ void zlarfg_kernel(int n, hipDoubleComplex tau, double e, hipDoubleCo
   rv2 = __shfl_down(rv1, 16);
   rv1 = (rv1 + rv2);
   if (laneid == 1) {
-    istat = atomicAdd(xnorm, rv1);
+    istat = atomicAdd(&xnorm, rv1);
   }
   __syncthreads();
-  if (xnorm == 0.0 /*_8*/ & alphai == 0.0 /*_8*/) {
+  if (xnorm == 0.0 /*_8*/ && alphai == 0.0 /*_8*/) {
     if (tid == 1) {
-      tau = 0.0 /*_8*/;
+      tau = make_hipDoubleComplex(0.0,0.0) /*_8*/;
     }
   }else {
     if (tid == 1) {
@@ -383,25 +385,30 @@ __global__ void zlarfg_kernel(int n, hipDoubleComplex tau, double e, hipDoubleCo
     rv1 = abs(alphar);
     rv2 = abs(alphai);
     // ! not taking abs of xnorm
-    scal = max(rv1, rv2, xnorm);
+    scal = max(max(rv1, rv2), xnorm);
     invscal = (1.e0 / scal);
     rv1 = (rv1 * invscal);
     rv2 = (rv2 * invscal);
     xnorm = (xnorm * invscal);
-    beta = -sign((scal * sqrt((rv1 * rv1 + rv2 * rv2 + xnorm * xnorm))), alphar);
-    tau = make_doubleComplex(((beta - alphar) / beta), (-alphai / beta));
+    if (alphar >= 0){
+        beta = -abs(scal * sqrt(rv1 * rv1 + rv2 * rv2 + xnorm * xnorm));
+    } else {
+       beta = abs(scal * sqrt(rv1 * rv1 + rv2 * rv2 + xnorm * xnorm)); 
+    }
+    tau = make_hipDoubleComplex(((beta - alphar) / beta), (-alphai / beta));
     // !zladiv
-    rv1 = make_double((alpha_s - beta));
-    rv2 = dimag[_idx_dimag((alpha_s - beta))];
+    tmp0 = alpha_s - make_hipDoubleComplex(beta,0);
+    rv1 = make_double(tmp0);
+    rv2 = dimag(tmp0);
     if ((abs(rv2) < abs(rv1))) {
       xnorm = (rv2 / rv1);
       invscal = (1.e0 / (rv1 + rv2 * xnorm));
-      alpha_s = make_doubleComplex(invscal, (-xnorm * invscal));
+      alpha_s = make_hipDoubleComplex(invscal, (-xnorm * invscal));
 
     } else {
       xnorm = (rv1 / rv2);
       invscal = (1.e0 / (rv2 + rv1 * xnorm));
-      alpha_s = make_doubleComplex((xnorm * invscal), -invscal);
+      alpha_s = make_hipDoubleComplex((xnorm * invscal), -invscal);
     }
     e = beta;
     // ! store beta in e vector
@@ -415,7 +422,7 @@ __global__ void zlarfg_kernel(int n, hipDoubleComplex tau, double e, hipDoubleCo
 
     } else if (i == n){
       // !x(i) = 1.0_8
-      cv1 = make_doubleComplex(1.0 /*_8*/, 0.0 /*_8*/);
+      cv1 = make_hipDoubleComplex(1.0 /*_8*/, 0.0 /*_8*/);
     }
     x[_idx_x(i)] = cv1;
 
@@ -642,7 +649,7 @@ __global__ void zher2_mv_zlarfg_kernel(int n,
                                        const int x2_lb1,
                                        hipDoubleComplex tau,
                                        double e,
-                                       int finished) {
+                                       unsigned int finished) {
 #undef _idx_v
 #define _idx_v(a, b) ((a - (v_lb1)) + v_n1 * (b - (v_lb2)))
 #undef _idx_w
@@ -681,14 +688,15 @@ __global__ void zher2_mv_zlarfg_kernel(int n,
   hipDoubleComplex cv1;
   __shared__ double xnorm;             /* Fortran qualifiers: SHARED */
   __shared__ hipDoubleComplex alpha_s; /* Fortran qualifiers: SHARED */
+  __shared__ hipDoubleComplex tmp0;
   tx = threadIdx.x + 1;
   ty = threadIdx.y + 1;
   i = ((blockIdx.x) * blockDim.x + tx);
   j = ((blockIdx.y) * blockDim.y + ty);
   nblocks = (gridDim.x * gridDim.y);
   // !if (i > N .or. j > M) return
-  if ((i <= n & j <= m)) {
-    val = (-conj(w[_idx_w(n, j)]) * v[_idx_v(i, j)] - conj(v[_idx_v(n, j)]) * w[_idx_w(i, j)]);
+  if ((i <= n && j <= m)) {
+    val = -conj(w[_idx_w(n, j)]) * v[_idx_v(i, j)] - conj(v[_idx_v(n, j)]) * w[_idx_w(i, j)];
     rv = make_double(val);
     iv = dimag(val);
     // ! Zero out imaginary part on diagonal
@@ -696,21 +704,21 @@ __global__ void zher2_mv_zlarfg_kernel(int n,
       iv = 0.e0;
     }
     // ! Update x
-    istat = atomicAdd(x[_idx_x((2 * i - 1))], rv);
-    istat = atomicAdd(x[_idx_x((2 * i))], iv);
+    istat = atomicAdd(x + _idx_x((2 * i - 1))*16, rv);
+    istat = atomicAdd(x + _idx_x((2 * i))*16, iv);
   }
   if (ty == 1) {
     // ! Zero out column for zhemv call
     if ((i <= n)) {
-      w2[_idx_w2(i, 1)] = 0;
+      w2[_idx_w2(i, 1)] = make_hipDoubleComplex(0,0);
 
     } // ! Zero out workspace for intermediate zgemv results
     if ((i <= m)) {
-      w2[_idx_w2((n + i), 1)] = 0;
-      w2[_idx_w2((n + i), 2)] = 0;
+      w2[_idx_w2((n + i), 1)] = make_hipDoubleComplex(0,0);
+      w2[_idx_w2((n + i), 2)] = make_hipDoubleComplex(0,0);
     }
   }
-  threadfence();
+  __threadfence();
   nfinished = 0;
   __syncthreads();
   if ((tx + ty) == 2) {
@@ -720,7 +728,7 @@ __global__ void zher2_mv_zlarfg_kernel(int n,
   if ((nfinished < (nblocks - 1))) {
     return; // ! Begin dlarfg work with last block
   }
-  if ((n == 1)) {
+  if (n == 1) {
     return;
   }
   tid = (tx + (ty - 1) * blockDim.x);
@@ -762,13 +770,13 @@ __global__ void zher2_mv_zlarfg_kernel(int n,
   rv1 = (rv1 + rv2);
   rv2 = __shfl_down(rv1, 16);
   rv1 = (rv1 + rv2);
-  if ((laneid == 1)) {
+  if (laneid == 1) {
     istat = atomicAdd(&xnorm, rv1);
   }
   __syncthreads();
   if ((xnorm == 0.0 /*_8*/ & alphai == 0.0 /*_8*/)) {
-    if ((tid == 1)) {
-      tau = 0.0 /*_8*/;
+    if (tid == 1) {
+      tau = make_hipDoubleComplex(0.0,0.0) /*_8*/;
     }
   }else {
     if (tid == 1) {
@@ -776,25 +784,30 @@ __global__ void zher2_mv_zlarfg_kernel(int n,
     rv1 = abs(alphar);
     rv2 = abs(alphai);
     // ! not taking abs of xnorm
-    scal = max(rv1, rv2, xnorm);
+    scal = max(max(rv1, rv2), xnorm);
     invscal = (1.e0 / scal);
     rv1 = (rv1 * invscal);
     rv2 = (rv2 * invscal);
     xnorm = (xnorm * invscal);
-    beta = -sign((scal * sqrt((rv1 * rv1 + rv2 * rv2 + xnorm * xnorm))), alphar);
-    tau = make_doubleComplex(((beta - alphar) / beta), (-alphai / beta));
+    if (alphar >= 0){
+        beta = -abs(scal * sqrt(rv1 * rv1 + rv2 * rv2 + xnorm * xnorm));
+    } else {
+       beta = abs(scal * sqrt(rv1 * rv1 + rv2 * rv2 + xnorm * xnorm)); 
+    }
+    tau = make_hipDoubleComplex(((beta - alphar) / beta), (-alphai / beta));
     // !zladiv
-    rv1 = make_double((alpha_s - beta));
-    rv2 = dimag(alpha_s - beta);
+    tmp0 = alpha_s - make_hipDoubleComplex(beta,0);
+    rv1 = make_double(tmp0);
+    rv2 = dimag(tmp0);
     if ((abs(rv2) < abs(rv1))) {
       xnorm = (rv2 / rv1);
       invscal = (1.e0 / (rv1 + rv2 * xnorm));
-      alpha_s = make_doubleComplex(invscal, (-xnorm * invscal));
+      alpha_s = make_hipDoubleComplex(invscal, (-xnorm * invscal));
 
     } else {
       xnorm = (rv1 / rv2);
       invscal = (1.e0 / (rv2 + rv1 * xnorm));
-      alpha_s = make_doubleComplex((xnorm * invscal), -invscal);
+      alpha_s = make_hipDoubleComplex((xnorm * invscal), -invscal);
     }
     e = beta;
     // ! store beta in e vector
@@ -807,7 +820,7 @@ __global__ void zher2_mv_zlarfg_kernel(int n,
 
     } else if (i == (n - 1)) {
       // !x(i) = 1.0_8
-      cv1 = make_doubleComplex(1.0 /*_8*/, 0.0 /*_8*/);
+      cv1 = make_hipDoubleComplex(1.0 /*_8*/, 0.0 /*_8*/);
     }
     x2[_idx_x2(i)] = cv1;
 
@@ -843,7 +856,7 @@ extern "C" void launch_zher2_mv_zlarfg_kernel(dim3 *grid,
                                               const int x2_lb1,
                                               hipDoubleComplex tau,
                                               double e,
-                                              int finished) {
+                                              unsigned int finished) {
   hipLaunchKernelGGL((zher2_mv_zlarfg_kernel),
                      *grid,
                      *block,
@@ -1296,6 +1309,7 @@ __global__ void finish_w_col_kernel(int n,
   hipDoubleComplex val;
   hipDoubleComplex cv1;
   hipDoubleComplex mytau;
+  hipDoubleComplex tmp0;
   __shared__ double alphar; /* Fortran qualifiers: SHARED */
   __shared__ double alphai; /* Fortran qualifiers: SHARED */
   // !complex(8), shared                          :: alpha
@@ -1325,10 +1339,11 @@ __global__ void finish_w_col_kernel(int n,
   for (int j = 1; j <= nb; j += 1) {
     // ! All threads perform their product, zero if out of bounds
     if ((i <= n)) {
-      val = (dconj((mytau * y[_idx_y(i)])) * x[_idx_x(i)]);
+      tmp0 = mytau * y[_idx_y(i)];
+      val = conj(tmp0) * x[_idx_x(i)];
 
     } else {
-      val = make_doubleComplex(0, 0);
+      val = make_hipDoubleComplex(0, 0);
     }
     rv1 = make_double(val);
   iv1 = dimag(val);
@@ -1364,7 +1379,7 @@ __global__ void finish_w_col_kernel(int n,
     istat = atomicAdd(&alphai, iv1);
   }
   __syncthreads();
-  alpha = (-make_doubleComplex(0.5, 0.0) * mytau * make_doubleComplex(alphar, alphai));
+  alpha = (-make_hipDoubleComplex(0.5, 0.0) * mytau * make_hipDoubleComplex(alphar, alphai));
   for (int i = tid; i <= n; i += blockDim.x) {
     y[_idx_y(i)] = (mytau * y[_idx_y(i)] + alpha * x[_idx_x(i)]);
     // !zaxpy
@@ -1548,7 +1563,7 @@ __global__ void stacked_zgemv_n_finish_w(int m,
                                          hipDoubleComplex *y2,
                                          const int y2_n1,
                                          const int y2_lb1,
-                                         int finished) {
+                                         unsigned int finished) {
 #undef _idx_v
 #define _idx_v(a, b) ((a - (v_lb1)) + v_n1 * (b - (v_lb2)))
 #undef _idx_w
@@ -1579,6 +1594,7 @@ __global__ void stacked_zgemv_n_finish_w(int m,
   hipDoubleComplex val2;
   hipDoubleComplex mytau;
   hipDoubleComplex alpha;
+  hipDoubleComplex tmp0;
   double rv1;
   double rv2;
   double iv1;
@@ -1594,7 +1610,7 @@ __global__ void stacked_zgemv_n_finish_w(int m,
   i = ((blockIdx.x) * blockDim.x + tx);
   j = ((blockIdx.y) * blockDim.y + ty);
   nblocks = (gridDim.x * gridDim.y);
-  if ((i <= m & j <= (2 * n))) {
+  if ((i <= m && j <= (2 * n))) {
     if ((j > n)) {
       val1 = z2[_idx_z2((j - n))];
       val2 = v[_idx_v(i, (j - n))];
@@ -1612,7 +1628,7 @@ __global__ void stacked_zgemv_n_finish_w(int m,
     istat = atomicAdd(y + _idx_y((2 * i - 1))*8, rv1);
     istat = atomicAdd(y + _idx_y((2 * i))*8, iv1);
   }
-  threadfence();
+  __threadfence();
   nfinished = 0;
   __syncthreads();
   if ((tx + ty) == 2) {
@@ -1639,10 +1655,11 @@ __global__ void stacked_zgemv_n_finish_w(int m,
   for (int j = 1; j <= nb; j += 1) {
     // ! All threads perform their product, zero if out of bounds
     if ((i <= m)) {
-      val1 = (dconj((mytau * y2[_idx_y2(i)])) * x[_idx_x(i)]);
+      tmp0 = mytau * y2[_idx_y2(i)];
+      val1 = conj(tmp0) * x[_idx_x(i)];
 
     } else {
-      val1 = make_doubleComplex(0, 0);
+      val1 = make_hipDoubleComplex(0, 0);
     }
     rv1 = make_double(val1);
   iv1 = dimag(val1);
@@ -1678,7 +1695,7 @@ __global__ void stacked_zgemv_n_finish_w(int m,
     istat = atomicAdd(&alphai, iv1);
   }
   __syncthreads();
-  alpha = (-make_doubleComplex(0.5, 0.0) * mytau * make_doubleComplex(alphar, alphai));
+  alpha = (-make_hipDoubleComplex(0.5, 0.0) * mytau * make_hipDoubleComplex(alphar, alphai));
   for (int i = tid; i <= m; i += (blockDim.x * blockDim.y)) {
     y2[_idx_y2(i)] = (mytau * y2[_idx_y2(i)] + alpha * x[_idx_x(i)]);
     // !zaxpy
@@ -1717,7 +1734,7 @@ extern "C" void launch_stacked_zgemv_n_finish_w(dim3 *grid,
                                                 hipDoubleComplex *y2,
                                                 const int y2_n1,
                                                 const int y2_lb1,
-                                                int finished) {
+                                                unsigned int finished) {
   hipLaunchKernelGGL((stacked_zgemv_n_finish_w),
                      *grid,
                      *block,

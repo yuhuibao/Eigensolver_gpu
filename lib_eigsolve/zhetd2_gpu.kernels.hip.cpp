@@ -291,7 +291,7 @@ __global__ void zhetd2_gpu(int lda,
   double z;
   double w;
   hipDoubleComplex wc;
-  hipDoubleComplex tmp0,tmp1;
+  __shared__ hipDoubleComplex tmp0,tmp1;
   int tx;
   int ty;
   int tl;
