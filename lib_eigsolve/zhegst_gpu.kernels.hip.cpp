@@ -36,11 +36,11 @@ double make_double(unsigned char a) { return static_cast<double>(a); }
 double make_double(float a) { return static_cast<double>(a); }
 double make_double(double a) { return static_cast<double>(a); }
 double make_double(long double a) { return static_cast<double>(a); }
-double make_double(hipFloatComplex &a) { return static_cast<double>(a.x); }
-double make_double(hipDoubleComplex &a) { return static_cast<double>(a.x); }
+__device__ double make_double(hipFloatComplex &a) { return static_cast<double>(a.x); }
+__device__ double make_double(hipDoubleComplex &a) { return static_cast<double>(a.x); }
 // conjugate complex type
-hipFloatComplex conj(hipFloatComplex &c) { return hipConjf(c); }
-hipDoubleComplex conj(hipDoubleComplex &z) { return hipConj(z); }
+__device__ hipFloatComplex conj(hipFloatComplex &c) { return hipConjf(c); }
+__device__ hipDoubleComplex conj(hipDoubleComplex &z) { return hipConj(z); }
 
 // TODO Add the following functions:
 // - sign(x,y) = sign(y) * |x| - sign transfer function
@@ -143,8 +143,8 @@ __global__ void krnl_9c3ecb_1(int k, hipDoubleComplex *a, const int a_n1, const 
   unsigned int j = k + threadIdx.y + blockIdx.y * blockDim.y;
   unsigned int i = k + threadIdx.x + blockIdx.x * blockDim.x;
   if ((j <= (k + kb - 1)) && (i <= (k + kb - 1))) {
-    if ((i == j)) {
-      a[_idx_a(i, j)] = make_double(a[_idx_a(i, j)]);
+    if (i == j) {
+      a[_idx_a(i, j)] = make_hipDoubleComplex(make_double(a[_idx_a(i, j)]),0);
     }
   }
 }

@@ -30,16 +30,16 @@ module zhegst_gpu
 contains
 
    ! zhegst completed in blocks, using 2 ztrsms to solve subblock problem on GPU
-   subroutine zhegst_gpu(itype, uplo, N, A, lda, B, ldb, nb)
+   subroutine zhegst_gpu_h(itype, uplo, N, A, lda, B, ldb, nb)
       use zhegst_gpu_kernels
       use eigsolve_vars
 
       implicit none
       integer, intent(in)                                   :: itype, N, lda, ldb, nb
       character, intent(in)                                 :: uplo
-      type(c_ptr) :: B 
+      type(c_ptr),value :: B 
       integer(c_int) :: B_n1, B_n2, B_lb1 = 1, B_lb2 = 1
-      type(c_ptr) :: A 
+      type(c_ptr),value :: A 
       integer(c_int) :: A_n1, A_n2, A_lb1 = 1, A_lb2 = 1
 
       complex(8), parameter                                 :: cone = cmplx(1., 0, 8), chalf = cmplx(0.5, 0, 8)
@@ -72,9 +72,9 @@ contains
 
          ! Solve subblock problem (this version results in fully populated A subblock)
          istat = hipblasztrsm(hipblasHandle,  HIPBLAS_SIDE_LEFT, HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_C, HIPBLAS_OP_N, kb, kb,&
-         cone, inc_c_ptr(B, (ldb*(k - 1) + k - 1)*8*1_8), ldb - (k - 1), inc_c_ptr(A, (lda*(k - 1) + k - 1)*8*1_8), lda - (k - 1))
+         cone, inc_c_ptr(B, (ldb*(k - 1) + k - 1)*16*1_8), ldb - (k - 1), inc_c_ptr(A, (lda*(k - 1) + k - 1)*16*1_8), lda - (k - 1))
          istat = hipblasztrsm(hipblasHandle,  HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_N, HIPBLAS_OP_N, kb, kb,&
-         cone, inc_c_ptr(B, (ldb*(k - 1) + k - 1)*8*1_8), ldb - (k - 1), inc_c_ptr(A, (lda*(k - 1) + k - 1)*8*1_8), lda - (k - 1))
+         cone, inc_c_ptr(B, (ldb*(k - 1) + k - 1)*16*1_8), ldb - (k - 1), inc_c_ptr(A, (lda*(k - 1) + k - 1)*16*1_8), lda - (k - 1))
 
          ! For accuracy, force diagonal to remain real
          ! extracted to HIP C++ file
@@ -86,36 +86,36 @@ contains
          if (k + kb .le. N) then
             istat = hipblasSetStream(hipblasHandle,  stream2)
             istat = hipblasztrsm(hipblasHandle,  HIPBLAS_SIDE_LEFT, HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_C, HIPBLAS_OP_N,&
-            kb, (N - k - kb + 1), cone, inc_c_ptr(B,(ldb*(k-1)+k-1)*8*1_8), ldb-(k-1) ,inc_c_ptr(A,(lda*(k+kb-1)+k-1)*8*1_8),&
+            kb, (N - k - kb + 1), cone, inc_c_ptr(B,(ldb*(k-1)+k-1)*16*1_8), ldb-(k-1) ,inc_c_ptr(A,(lda*(k+kb-1)+k-1)*16*1_8),&
             lda - (k - 1))
 
             istat = hipStreamWaitEvent(stream2, event1, 0)
 
             ! Since the A subblock is fully populated, use gemm instead of hemm here
             istat = hipblaszgemm(hipblasHandle,  HIPBLAS_OP_N, HIPBLAS_OP_N, kb, (N - k - kb + 1), kb,&
-            -chalf, inc_c_ptr(A, (lda*(k - 1) + k - 1)*8*1_8), lda - (k - 1), &
-            inc_c_ptr(B, (ldb*(k + kb - 1) + k - 1)*8*1_8), &
-            ldb - (k - 1), cone, inc_c_ptr(A, (lda*(k + kb - 1) + k - 1)*8*1_8), lda - (k - 1))
+            -chalf, inc_c_ptr(A, (lda*(k - 1) + k - 1)*16*1_8), lda - (k - 1), &
+            inc_c_ptr(B, (ldb*(k + kb - 1) + k - 1)*16*1_8), &
+            ldb - (k - 1), cone, inc_c_ptr(A, (lda*(k + kb - 1) + k - 1)*16*1_8), lda - (k - 1))
             istat = hipblaszher2k(hipblasHandle,  HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_C, (N - k - kb + 1), kb, -cone,&
-            inc_c_ptr(A, (lda*(k + kb - 1) + k - 1)*8*1_8), lda - (k - 1), &
-            inc_c_ptr(B, (ldb*(k + kb - 1) + k - 1)*8*1_8), ldb - (k - 1), &
-            one, inc_c_ptr(A, (lda*(k + kb - 1) + k + kb - 1)*8*1_8), lda - (k + kb - 1))
+            inc_c_ptr(A, (lda*(k + kb - 1) + k - 1)*16*1_8), lda - (k - 1), &
+            inc_c_ptr(B, (ldb*(k + kb - 1) + k - 1)*16*1_8), ldb - (k - 1), &
+            one, inc_c_ptr(A, (lda*(k + kb - 1) + k + kb - 1)*16*1_8), lda - (k + kb - 1))
 
             istat = hipEventRecord(event2, stream2)
 
             istat = hipblaszgemm(hipblasHandle,  HIPBLAS_OP_N, HIPBLAS_OP_N, kb, (N - k - kb + 1), kb, -chalf,&
-            inc_c_ptr(A, (lda*(k - 1) + k - 1)*8*1_8), lda - (k - 1), &
-            inc_c_ptr(B, (ldb*(k + kb - 1) + k - 1)*8*1_8),ldb - (k - 1), &
-            cone, inc_c_ptr(A, (lda*(k + kb - 1) + k - 1)*8*1_8), lda - (k - 1))
+            inc_c_ptr(A, (lda*(k - 1) + k - 1)*16*1_8), lda - (k - 1), &
+            inc_c_ptr(B, (ldb*(k + kb - 1) + k - 1)*16*1_8),ldb - (k - 1), &
+            cone, inc_c_ptr(A, (lda*(k + kb - 1) + k - 1)*16*1_8), lda - (k - 1))
 
             istat = hipblasztrsm(hipblasHandle,  HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_N, HIPBLAS_OP_N, kb,&
-             (N - k - kb + 1), cone, inc_c_ptr(B, (ldb*(k + kb - 1) + k + kb - 1)*8*1_8), ldb-(k + kb - 1) ,&
-             inc_c_ptr(A, (lda*(k + kb - 1) + k - 1)*8*1_8), lda - (k - 1))
+             (N - k - kb + 1), cone, inc_c_ptr(B, (ldb*(k + kb - 1) + k + kb - 1)*16*1_8), ldb-(k + kb - 1) ,&
+             inc_c_ptr(A, (lda*(k + kb - 1) + k - 1)*16*1_8), lda - (k - 1))
 
          end if
 
       end do
 
-   end subroutine zhegst_gpu
+   end subroutine zhegst_gpu_h
 
 end module zhegst_gpu
