@@ -37,10 +37,12 @@ double make_double(float a) { return static_cast<double>(a); }
 double make_double(double a) { return static_cast<double>(a); }
 double make_double(long double a) { return static_cast<double>(a); }
 double make_double(hipFloatComplex &a) { return static_cast<double>(a.x); }
-double make_double(hipDoubleComplex &a) { return static_cast<double>(a.x); }
+__device__ double make_double(hipDoubleComplex &a) { return static_cast<double>(a.x); }
 // conjugate complex type
 hipFloatComplex conj(hipFloatComplex &c) { return hipConjf(c); }
-hipDoubleComplex conj(hipDoubleComplex &z) { return hipConj(z); }
+__device__ hipDoubleComplex conj(hipDoubleComplex &z) { return hipConj(z); }
+// extract imaginary part
+__device__ double dimag(hipDoubleComplex &a) { return static_cast<double>(a.y); }
 
 // TODO Add the following functions:
 // - sign(x,y) = sign(y) * |x| - sign transfer function
@@ -289,6 +291,7 @@ __global__ void zhetd2_gpu(int lda,
   double z;
   double w;
   hipDoubleComplex wc;
+  hipDoubleComplex tmp0,tmp1;
   int tx;
   int ty;
   int tl;
@@ -308,8 +311,8 @@ __global__ void zhetd2_gpu(int lda,
     a_s[_idx_a_s(tx, ty)] = conj(a_s[_idx_a_s(ty, tx)]);
   }
   // ! Enforce diagonal element to be real
-  if ((tl == 1)) {
-    a_s[_idx_a_s(n, n)] = make_double(a_s[_idx_a_s(n, n)]);
+  if (tl == 1) {
+    a_s[_idx_a_s(n, n)] = make_hipDoubleComplex(make_double(a_s[_idx_a_s(n, n)]),0);
   }
   __syncthreads(); // ! For each column working backward
       for (i = n - 1; i >= 1; i--) {
@@ -318,7 +321,8 @@ __global__ void zhetd2_gpu(int lda,
     // ! Reduce in a warp
     if ((tl <= 32)) {
       if ((tl < i)) {
-        w = (a_s[_idx_a_s(tl, (i + 1))] * conj(a_s[_idx_a_s(tl, (i + 1))]));
+        tmp0 =a_s[_idx_a_s(tl, (i + 1))] * conj(a_s[_idx_a_s(tl, (i + 1))]); 
+        w = make_double(tmp0);
 
       } else {
         w = 0. /*_8*/;
@@ -334,15 +338,15 @@ __global__ void zhetd2_gpu(int lda,
       xnorm = __shfl_down(w, 16);
       w = (w + xnorm);
     }
-    if ((tl == 1)) {
+    if (tl == 1) {
       alpha = a_s[_idx_a_s(i, (i + 1))];
       alphar = make_double(alpha);
-      alphai = dimag[(alpha)];
+      alphai = dimag(alpha);
       xnorm = sqrt(w);
-      if ((xnorm == 0 /*_8*/ & alphai == 0. /*_8*/)) {
+      if (xnorm == 0 /*_8*/ && alphai == 0. /*_8*/) {
         // ! H=1
-        taui = 0. /*_8*/;
-        alpha = make_doubleComplex(1.e0, 0.e0);
+        taui = make_hipDoubleComplex(0.,0.) /*_8*/;
+        alpha = make_hipDoubleComplex(1.e0, 0.e0);
         // ! To prevent scaling by zscal in this case
 
       } else {
@@ -350,43 +354,48 @@ __global__ void zhetd2_gpu(int lda,
         x = abs(alphar);
         y = abs(alphai);
         z = abs(xnorm);
-        w = max(x, y, z);
-        beta = -sign((w * sqrt(((x / w) * *((2 + (y / w)) * *((2 + (z / w)) * *2))))), alphar);
-        taui = make_doubleComplex(((beta - alphar) / beta), (-alphai / beta));
+        w = max(max(x, y), z);
+        if (alphar >= 0){
+            beta = -abs(w * sqrt(pow(x/w,2) + pow(y/w,2) + pow(z/w,2)));
+        }else {
+            beta = abs(w * sqrt(pow(x/w,2) + pow(y/w,2) + pow(z/w,2))); 
+        }
+        taui = make_hipDoubleComplex((beta - alphar) / beta, (-alphai / beta));
         // !zladiv(dcmplx(one),alpha-beta)
-        x = make_double((alpha - beta));
-        y = dimag[((alpha - beta))];
+        tmp1 = alpha - make_hipDoubleComplex(beta,0);
+        x = make_double(tmp1);
+        y = dimag(tmp1);
         if ((abs(y) < abs(x))) {
           w = (y / x);
           z = (x + y * w);
-          alpha = make_doubleComplex((1 / z), (-w / z));
+          alpha = make_hipDoubleComplex((1 / z), (-w / z));
 
         } else {
           w = (x / y);
           z = (y + x * w);
-          alpha = make_doubleComplex((w / z), (-1 / z));
+          alpha = make_hipDoubleComplex((w / z), (-1 / z));
         }
       }
     }
     __syncthreads(); // ! zscal
     if ((tl < i)) {
-      a_s[_idx_a_s(tl, (i + 1))] = (a_s[_idx_a_s(tl, (i + 1))] * alpha);
+      a_s[_idx_a_s(tl, (i + 1))] = a_s[_idx_a_s(tl, (i + 1))] * alpha;
     }
-    if ((tl == 1)) {
-      if ((xnorm != 0 /*_8*/ | alphai != 0. /*_8*/)) {
-        alpha = make_doubleComplex(beta, 0. /*_8*/);
+    if (tl == 1) {
+      if ((xnorm != 0 /*_8*/ || alphai != 0. /*_8*/)) {
+        alpha = make_hipDoubleComplex(beta, 0. /*_8*/);
 
       } else {
         alpha = a_s[_idx_a_s(i, (i + 1))];
         // ! reset alpha to original value
       }
-      e[_idx_e(i)] = alpha;
+      e[_idx_e(i)] = make_double(alpha);
     }
-    if ((taui != make_hipComplex(0.e0, 0.e0))) {
-      a_s[_idx_a_s(i, (i + 1))] = make_doubleComplex(1.e0, 0.e0);
+    if (taui != make_hipDoubleComplex(0.e0, 0.e0)) {
+      a_s[_idx_a_s(i, (i + 1))] = make_hipDoubleComplex(1.e0, 0.e0);
       __syncthreads();
        if ((tl <= i)) {
-        tau[_idx_tau(tl)] = make_doubleComplex(0.e0, 0.e0);
+        tau[_idx_tau(tl)] = make_hipDoubleComplex(0.e0, 0.e0);
         for (int j = 1; j <= i; j += 1) {
           tau[_idx_tau(tl)] = (tau[_idx_tau(tl)] + taui * a_s[_idx_a_s(tl, j)] * a_s[_idx_a_s(j, (i + 1))]);
         }
@@ -394,9 +403,9 @@ __global__ void zhetd2_gpu(int lda,
       __syncthreads();
       if ((tl <= 32)) {
         if ((tl <= i)) {
-          wc = (taui * conj(tau[_idx_tau(tl)]) * a_s[_idx_a_s(tl, (i + 1))]);
+          wc = taui * conj(tau[_idx_tau(tl)]) * a_s[_idx_a_s(tl, (i + 1))];
           x = (-.5e0 * make_double(wc));
-          y = (-.5e0 * dimag[(wc)]);
+          y = (-.5e0 * dimag(wc));
 
         } else {
           x = 0. /*_8*/;
@@ -425,34 +434,34 @@ __global__ void zhetd2_gpu(int lda,
       }
       __syncthreads();
       if (tl <= i) { 
-          tau[_idx_tau(tl)] = (tau[_idx_tau(tl)] + make_doubleComplex(x, y) * a_s[_idx_a_s(tl, (i + 1))]);
+          tau[_idx_tau(tl)] = tau[_idx_tau(tl)] + make_hipDoubleComplex(x, y) * a_s[_idx_a_s(tl, (i + 1))];
       }
       if (tl == 1) {
-        alpha = make_doubleComplex(x, y);
+        alpha = make_hipDoubleComplex(x, y);
       }
       __syncthreads();
-      if ((tx <= i & ty <= i)) {
+      if ((tx <= i && ty <= i)) {
         a_s[_idx_a_s(tx, ty)] = (a_s[_idx_a_s(tx, ty)] - a_s[_idx_a_s(tx, (i + 1))] * conj(tau[_idx_tau(ty)]) -
                                  conj(a_s[_idx_a_s(ty, (i + 1))]) * tau[_idx_tau(tx)]);
       }
       __syncthreads();
     } else {
       if (tl == 1) {
-        a_s[_idx_a_s(i, i)] = make_double(a_s[_idx_a_s(i, i)]);
+        a_s[_idx_a_s(i, i)] = make_hipDoubleComplex(make_double(a_s[_idx_a_s(i, i)]),0);
       }
     }
     if (tl == 1) {
-      a_s[_idx_a_s(i, (i + 1))] = e[_idx_e(i)];
-      d[_idx_d((i + 1))] = a_s[_idx_a_s((i + 1), (i + 1))];
+      a_s[_idx_a_s(i, (i + 1))] = make_hipDoubleComplex(e[_idx_e(i)],0);
+      d[_idx_d((i + 1))] = make_double(a_s[_idx_a_s((i + 1), (i + 1))]);
       tau[_idx_tau(i)] = taui;
     }
     __syncthreads();
   }
   if (tl == 1) {
-    d[_idx_d(1)] = a_s[_idx_a_s(1, 1)];
+    d[_idx_d(1)] = make_double(a_s[_idx_a_s(1, 1)]);
   }
   __syncthreads(); // ! Back to device memory
-  if ((tx <= n & ty <= n)) {
+  if ((tx <= n && ty <= n)) {
     a[_idx_a(tx, ty)] = a_s[_idx_a_s(tx, ty)];
   }
 }
