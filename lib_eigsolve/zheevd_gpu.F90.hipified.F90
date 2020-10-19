@@ -116,15 +116,24 @@ contains
       !JR Note: ADD SCALING HERE IF DESIRED. Not scaling for now.
 
       ! Call ZHETRD to reduce A to tridiagonal form
-      call zhetrd_gpu('U', N, A, lda, w, inc_c_ptr(rwork, 1_8*8*inde), inc_c_ptr(work, 1_8*8*indtau), &
-      inc_c_ptr(work, 1_8*8*indwrk), , llwork, nb1)
+      call zhetrd_gpu_h('U', N, A, lda, w, inc_c_ptr(rwork, 1_8*8*inde), inc_c_ptr(work, 1_8*16*indtau), &
+      inc_c_ptr(work, 1_8*16*indwrk), llwork, nb1)
 
       ! Copy diagonal and superdiagonal to CPU
 #undef _idx_w
 #define _idx_w(a) ((a-(w_lb1)))
+#undef _idx_w_h
+#define _idx_w_h(a) ((a-(w_h_lb1)))
 #undef _idx_rwork
 #define _idx_rwork(a) ((a-(rwork_lb1)))
-      hipMemcpy(c_loc(w_h(1:N)), inc_c_ptr(w, _idx_w(1:N)*(8)), 1_8*(8)*(N),) hipMemcpy(c_loc(rwork_h(inde:(inde + N - 1))), inc_c_ptr(rwork, _idx_rwork(inde:(inde + N - 1))*(8)), 1_8*(8)*((inde + N - 1) - (inde) + 1),)
+#undef _idx_rwork_h
+#define _idx_rwork_h(a) ((a-(rwork_h_lb1)))
+     !w_h(1:N) = w(1:N)
+      istat = hipMemcpy(w_h, w, 1_8*(8)*(N), hipMemcpyHostToDevice) 
+
+      !rwork_h(inde:inde+N-1) = rwork(inde:inde+N-1)
+      istat = hipMemcpy(inc_c_ptr(rwork_h, 1_8*8*_idx_rwork_h(inde)), inc_c_ptr(rwork, 1_8*_idx_rwork(inde)*8), &
+                          1_8*(8)*((inde + N - 1) - (inde) + 1), hipMemcpyHostToDevice)
 
       ! Restore lower triangular of A (works if called from zhegvd only!)
       ! extracted to HIP C++ file
@@ -132,7 +141,7 @@ contains
       CALL launch_krnl_e26a05_0_auto(0, c_null_ptr, z, z_n1, z_n2, z_lb1, z_lb2, n, a, a_n1, a_n2, a_lb1, a_lb2)
 
       ! Call ZSTEDC to get eigenvalues/vectors of tridiagonal A on CPU
-      call zstedc('I', N, w_h, rwork_h(inde), Z_h, ldz_h, work_h, lwork_h, rwork_h(indrwk), llrwk, iwork_h, liwork_h, istat)
+      call zstedc('I', N, w_h, inc_c_ptr(rwork_h, 1_8*8*_idx_rwork_h(inde)), Z_h, ldz_h, work_h, lwork_h, inc_c_ptr(rwork_h, 1_8*8*_idx_rwork_h(indwrk)), llrwk, iwork_h, liwork_h, istat)
       if (istat /= 0) then
          write (*, *) "zheevd_gpu error: zstedc failed!"
          info = -1
@@ -142,10 +151,18 @@ contains
       ! Copy eigenvectors and eigenvalues to GPU
 #undef _idx_Z
 #define _idx_Z(a,b) ((a-(Z_lb1))+Z_n1*(b-(Z_lb2)))
+#undef _idx_Z_h
+#define _idx_Z_h(a,b) ((a-(Z_h_lb1))+Z_h_n1*(b-(Z_h_lb2)))
 #undef _idx_w
 #define _idx_w(a) ((a-(w_lb1)))
-      istat = hipMemcpy2D(inc_c_ptr(Z, _idx_Z(1, 1)*(2*8)), 1_8*(ldz)*(2*8), c_loc(Z_h(1, il)), 1_8*(ldz_h)*(2*8), 1_8*(N)*(2*8), 1_8*(NZ)*(1), hipMemcpyHostToDevice)
-      hipMemcpy(inc_c_ptr(w, _idx_w(1:N)*(8)), c_loc(w_h(1:N)), 1_8*(8)*(N),)
+      !istat = cudaMemcpy2D(Z(1, 1), ldz, Z_h(1, il), ldz_h, N, NZ)
+      istat = hipMemcpy2D(inc_c_ptr(Z, _idx_Z(1,1)*16*1_8), ldz*16*1_8,&
+      inc_c_ptr(Z_h, _idx_Z_h(1, il)*16*1_8), ldz_h*16*1_8,&
+      N*16*1_8, NZ*1_8, hipMemcpyHostToDevice)
+      !w(1:N) = w_h(1:N)
+      istat = hipMemcpy(inc_c_ptr(w, _idx_w(1)*(8)*1_8),&
+      inc_c_ptr(w_h, _idx_w_h(1)*8*1_8),&
+       1_8*(8)*(N), hipMemcpyHostToDevice)
 
       ! Call ZUNMTR to rotate eigenvectors to obtain result for original A matrix
       ! JR Note: Eventual function calls from ZUNMTR called directly here with associated indexing changes
@@ -158,14 +175,19 @@ contains
          ib = min(nb2, k - i + 1)
 
          ! Form block reflector T in stream 1
-         call zlarft_gpu(i + ib - 1, ib, A(1, 2 + i - 1), lda, work(indtau + i - 1), work(indwrk), ldt, work(indwk2), ldt)
+         call dlarft_gpu(i + ib - 1, ib, inc_c_ptr(A, lda*(2 + i - 1 - 1)*16*1_8), lda, &
+            inc_c_ptr(work, _idx_w(indtau + i - 1)*16*1_8), &
+            inc_c_ptr(work, _idx_w(indwrk)*16*1_8), ldt,&
+            inc_c_ptr(work, _idx_w(indwk2)*16*1_8), ldt)
 
          mi = i + ib - 1
+         call dlarfb_gpu(mi, NZ, ib, inc_c_ptr(A, lda*(2 + i - 1 - 1)*16*1_8), lda,&
+            inc_c_ptr(work, _idx_w(indwrk)*16*1_8), ldt, Z, ldz, &
+            inc_c_ptr(work, _idx_w(indwk3)*16*1_8), N,&
+            inc_c_ptr(work, _idx_w(indwk2)*16*1_8), ldt)
          ! Apply reflector to eigenvectors in stream 2
-         call zlarfb_gpu(mi, NZ, ib, A(1, 2 + i - 1), lda, work(indwrk), ldt, Z, ldz, work(indwk3), N, work(indwk2), ldt)
       end do
 
-      call nvtxEndRange
 
    end subroutine zheevd_gpu_h
 
@@ -201,7 +223,7 @@ contains
       W_n2 = K
       W_lb1 = 1
       W_lb2 = 1
-      istat = hipblasSetStream(cuHandle, stream1)
+      istat = hipblasSetStream(hipblasHandle, stream1)
 
       ! Prepare lower triangular part of block column for zherk call.
       ! Requires zeros in lower triangular portion and ones on diagonal.
@@ -214,11 +236,11 @@ contains
       istat = hipStreamWaitEvent(stream1, event2, 0)
 
       ! Form preliminary T matrix
-      istat = hipblaszherk(cuHandle, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_C, K, N, 1.0_8, V, ldv, 0.0_8, T, ldt)
+      istat = hipblaszherk(hipblasHandle, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_C, K, N, 1.0_8, V, ldv, 0.0_8, T, ldt)
 
       ! Finish forming T
       threads = dim3(64, 16, 1)
-      call finish_T_block_kernel<<<1, threads, 0, stream1>>>(K, T, ldt, tau)
+      CALL launch_finish_t_block_kernel(dim3(1, 1, 1),threads, 0, stream1,n, ldt, T, t_n1, t_n2, t_lb1, t_lb2, tau,tau_n1,tau_lb1)
 
    end subroutine zlarft_gpu
 
@@ -249,14 +271,14 @@ contains
         C_n2 = N
         work_n1 = ldwork
         work_n2 = K
-      istat = hipblasSetStream(cuHandle, stream2)
+      istat = hipblasSetStream(hipblasHandle, stream2)
       istat = hipStreamWaitEvent(stream2, event1, 0)
-      istat = hipblaszgemm(cuHandle, HIPBLAS_OP_C, HIPBLAS_OP_N, N, K, M, Dcmplx(1, 0), C, ldc, v, ldv, Dcmplx(0, 0), work, ldwork)
+      istat = hipblaszgemm(hipblasHandle, HIPBLAS_OP_C, HIPBLAS_OP_N, N, K, M, cmplx(1.0d0, 0), C, ldc, v, ldv, cmplx(1.0d0, 0), work, ldwork)
       istat = hipStreamSynchronize(stream1)
-      istat = hipblasztrmm(cuHandle, HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_C, HIPBLAS_DIAG_NON_UNIT, N, K, Dcmplx(1, 0), T, ldt, work, ldwork, work, ldwork)
+      istat = hipblasztrmm(hipblasHandle, HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_C, HIPBLAS_DIAG_NON_UNIT, N, K, cmplx(1.0d0, 0), T, ldt, work, ldwork, work, ldwork)
 
       istat = hipEventRecord(event2, stream2)
-      istat = hipblaszgemm(cuHandle, HIPBLAS_OP_N, HIPBLAS_OP_C, M, N, K, Dcmplx(-1, 0), V, ldv, work, ldwork, Dcmplx(1, 0), C, ldc)
+      istat = hipblaszgemm(hipblasHandle, HIPBLAS_OP_N, HIPBLAS_OP_C, M, N, K, cmplx(-1.0d0, 0), V, ldv, work, ldwork, cmplx(1.0d0, 0), C, ldc)
 
       ! Restore clobbered section of block column (except diagonal)
       ! extracted to HIP C++ file

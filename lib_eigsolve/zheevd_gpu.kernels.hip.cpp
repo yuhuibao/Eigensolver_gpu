@@ -180,11 +180,11 @@ __global__ void krnl_b1ccc1_1(int k,
   unsigned int i = (n - k + 1) + threadIdx.x + blockIdx.x * blockDim.x;
   if ((j <= k) && (i <= n)) {
     if (((i - n + k) == j)) {
-      v[_idx_v(i, j)] = make_doubleComplex(1, 0);
+      v[_idx_v(i, j)] = make_hipDoubleComplex(1, 0);
 
     } else if (((i - n + k) > j)) {
       w[_idx_w((i - n + k), j)] = v[_idx_v(i, j)];
-      v[_idx_v(i, j)] = make_doubleComplex(0, 0);
+      v[_idx_v(i, j)] = make_hipDoubleComplex(0, 0);
     }
   }
 }
@@ -443,7 +443,7 @@ __global__ void finish_t_block_kernel(int n,
       for (int i = (n - 1); i <= 1; i += -1) {
     if (ty == 1) {
       if ((tx > i & tx <= n)) {
-        cv = make_floatComplex(0, 0);
+        cv = make_hipDoubleComplex(0, 0);
         for (int j = (i + 1); j <= tx; j += 1) {
           cv = cv + t_s[_idx_t_s(IJ2TRI(j, i))] * t_s[_idx_t_s(IJ2TRI(tx, j))];
         }

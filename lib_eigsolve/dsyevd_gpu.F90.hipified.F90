@@ -124,10 +124,10 @@ contains
 #undef _idx_work_h
 #define _idx_work_h(a) ((a-(work_h_lb1)))
         !w_h(1:N) = w(1:N)
-        istat = hipMemcpy(w_h, w, 1_8*(8)*(N), hipMemcpyHostToDevice)
+        istat = hipMemcpy(w, w_h, 1_8*(8)*(N), hipMemcpyHostToDevice)
 
         !work_h(inde:inde+N-1) = work(inde:inde+N-1)
-        istat = hipMemcpy(inc_c_ptr(work_h, 1_8*8*_idx_work_h(inde)), inc_c_ptr(work, 1_8*_idx_work(inde)*8), &
+        istat = hipMemcpy(inc_c_ptr(work, 1_8*_idx_work(inde)*8), inc_c_ptr(work_h, 1_8*8*_idx_work_h(inde)),&
                           1_8*(8)*((inde + N - 1) - (inde) + 1), hipMemcpyHostToDevice)
 
         ! Restore lower triangular of A (works if called from zhegvd only!)
@@ -219,6 +219,7 @@ contains
         W_n2 = K
         W_lb1 = 1
         W_lb2 = 1
+        istat = hipblasSetStream(hipblasHandle, stream1)
         ! Prepare lower triangular part of block column for dsyrk call.
         ! Requires zeros in lower triangular portion and ones on diagonal.
         ! Store existing entries (excluding diagonal) in W
@@ -265,6 +266,7 @@ contains
         C_n2 = N
         work_n1 = ldwork
         work_n2 = K
+        istat = hipblasSetStream(hipblasHandle, stream2)
         istat = hipStreamWaitEvent(stream2, event1, 0)
         istat = hipblasdgemm(hipblasHandle, HIPBLAS_OP_T, HIPBLAS_OP_N, N, K, M, 1.0d0, C, ldc, v, ldv, 0.0d0, work, ldwork)
         istat = hipStreamSynchronize(stream1)
