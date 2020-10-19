@@ -75,8 +75,8 @@ contains
    !     eigenvalues. This is a copy of the w array on the host.
    !   - info is an integer. info will equal zero if the function completes succesfully. Otherwise, there was an error.
    !
-   subroutine zhegvdx_gpu(N, A, lda, B, ldb, Z, ldz, il, iu, w, work, lwork, rwork, lrwork, &
-                          work_h, lwork_h, rwork_h, lrwork_h, iwork_h, liwork_h, Z_h, ldz_h, w_h, info, _skip_host_copy)
+   subroutine zhegvdx_gpu_h(N, A, lda, B, ldb, Z, ldz, il, iu, w, work, lwork, rwork, lrwork, &
+                          work_h, lwork_h, rwork_h, lrwork_h, iwork_h, liwork_h, Z_h, ldz_h, w_h, info, cskip_host_copy)
       use zhegvdx_gpu_kernels
       use eigsolve_vars
 
@@ -101,7 +101,7 @@ contains
 
       type(c_ptr), value :: iwork_h
       integer(c_int) :: iwork_h_n1, iwork_h_lb1
-      logical, optional                           :: _skip_host_copy
+      logical, optional                           :: cskip_host_copy
 
       type(c_ptr), value :: A
         integer(c_int) :: A_n1, A_n2, A_lb1 = 1, A_lb2 = 1
@@ -119,6 +119,7 @@ contains
       complex(8), parameter :: cone = cmplx(1, 0, 8)
       integer :: i, j
       logical :: skip_host_copy
+      integer, target :: v_devInfo
       work_n1 = lwork
       work_lb1 = 1
       work_h_n1 = lwork_h
@@ -142,7 +143,7 @@ contains
       w_h_n1 = N
       info = 0
       skip_host_copy = .FALSE.
-      if (present(_skip_host_copy)) skip_host_copy = _skip_host_copy
+      if (present(cskip_host_copy)) skip_host_copy = cskip_host_copy
 
       ! Check workspace sizes
       if (lwork < 2*64*64 + 65*N) then
@@ -172,8 +173,9 @@ contains
       if (initialized == 0) call init_eigsolve_gpu
 
       ! Compute cholesky factorization of B
-      istat = cusolverDnZpotrf(cusolverHandle, HIPBLAS_FILL_modE_UPPER, N, B, ldb, work, lwork, devInfo_d)
-      istat = devInfo_d
+      istat = rocsolver_zpotrf(rocsolverHandle, rocblas_fill_upper, N, B, ldb, devInfo_d)
+        call hipCheck(hipMemcpy(c_loc(v_devInfo),devInfo_d, 1_8*(4)*(1),hipMemcpyDeviceToHost))
+        istat = v_devInfo
       if (istat .ne. 0) then
          print *, "zhegvdx_gpu error: cusolverDnZpotrf failed!"
          info = -1
@@ -187,22 +189,25 @@ contains
 
       ! Reduce to standard eigenproblem
       nb = 448
-      call zhegst_gpu(1, 'U', N, A, lda, B, ldb, nb)
+      call zhegst_gpu_h(1, 'U', N, A, lda, B, ldb, nb)
 
       ! Tridiagonalize and compute eigenvalues/vectors
-      call zheevd_gpu('V', 'U', il, iu, N, A, lda, Z, ldz, w, work, lwork, rwork, lrwork, &
+      call zheevd_gpu_h('V', 'U', il, iu, N, A, lda, Z, ldz, w, work, lwork, rwork, lrwork, &
                       work_h, lwork_h, rwork_h, lrwork_h, iwork_h, liwork_h, Z_h, ldz_h, w_h, info)
 
       ! Triangle solve to get eigenvectors for original general eigenproblem
-      call hipblasZtrsm(hipblasHandle, L, U, HIPBLAS_OP_N, HIPBLAS_OP_N, N, (iu - il + 1), cone, B, ldb, Z, ldz)
+      istat = hipblasZtrsm(hipblasHandle, HIPBLAS_SIDE_LEFT, HIPBLAS_FILL_MODE_LOWER, HIPBLAS_OP_N, HIPBLAS_DIAG_NON_UNIT, N,&
+       (iu - il + 1), cone, B, ldb, Z, ldz)
 #undef _idx_Z
 #define _idx_Z(a,b) ((a-(Z_lb1))+Z_n1*(b-(Z_lb2)))
 #undef _idx_Z_h
 #define _idx_Z_h(a,b) ((a-(Z_h_lb1))+Z_h_n1*(b-(Z_h_lb2)))
 
       ! Copy final eigenvectors to host
-      if (not(skip_host_copy)) then
-         istat = hipMemcpy2D(c_loc(Z_h), 1_8*(ldz_h)*(2*8), Z, 1_8*(ldz)*(2*8), 1_8*(N)*(2*8), 1_8*(m)*(1), hipMemcpyDeviceToHost)
+      if (.not.(skip_host_copy)) then
+        istat = hipMemcpy2D(inc_c_ptr(z_h, _idx_Z_h(1, 1)*16*1_8), 1_8*(ldz_h)*(16), &
+                                inc_c_ptr(z, _idx_Z(1, 1)*16*1_8), 1_8*(ldz)*(16), &
+                                1_8*(N)*(16), 1_8*(m)*(1), hipMemcpyDeviceToHost)
          if (istat .ne. 0) then
             print *, "zhegvdx_gpu error: cudaMemcpy2D failed!"
             info = -1
@@ -210,6 +215,6 @@ contains
          endif
       endif
 
-   end subroutine zhegvdx_gpu
+   end subroutine zhegvdx_gpu_h
 
 end module zhegvdx_gpu
