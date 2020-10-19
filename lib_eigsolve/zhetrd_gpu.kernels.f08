@@ -200,6 +200,9 @@ module zhetrd_gpu_kernels
       type(c_ptr),value :: x
       integer(c_int),value,intent(IN) :: x_n1
       integer(c_int),value,intent(IN) :: x_lb1
+      type(c_ptr),value :: x2
+      integer(c_int),value,intent(IN) :: x2_n1
+      integer(c_int),value,intent(IN) :: x2_lb1
       type(c_ptr),value :: tau
       type(c_ptr),value :: e
       type(c_ptr),value :: finished

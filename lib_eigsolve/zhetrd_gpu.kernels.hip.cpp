@@ -435,12 +435,12 @@ extern "C" void launch_zlarfg_kernel(dim3 *grid,
                                      const int sharedMem,
                                      hipStream_t stream,
                                      int n,
-                                     hipDoubleComplex tau,
-                                     double e,
+                                     hipDoubleComplex *tau,
+                                     double *e,
                                      hipDoubleComplex *x,
                                      const int x_n1,
                                      const int x_lb1) {
-  hipLaunchKernelGGL((zlarfg_kernel), *grid, *block, sharedMem, stream, n, tau, e, x, x_n1, x_lb1);
+  hipLaunchKernelGGL((zlarfg_kernel), *grid, *block, sharedMem, stream, n, *tau, *e, x, x_n1, x_lb1);
 }
 // END zlarfg_kernel
 
@@ -854,9 +854,9 @@ extern "C" void launch_zher2_mv_zlarfg_kernel(dim3 *grid,
                                               hipDoubleComplex *x2,
                                               const int x2_n1,
                                               const int x2_lb1,
-                                              hipDoubleComplex tau,
-                                              double e,
-                                              unsigned int finished) {
+                                              hipDoubleComplex *tau,
+                                              double *e,
+                                              unsigned int *finished) {
   hipLaunchKernelGGL((zher2_mv_zlarfg_kernel),
                      *grid,
                      *block,
@@ -885,9 +885,9 @@ extern "C" void launch_zher2_mv_zlarfg_kernel(dim3 *grid,
                      x2,
                      x2_n1,
                      x2_lb1,
-                     tau,
-                     e,
-                     finished);
+                     *tau,
+                     *e,
+                     *finished);
 }
 // END zher2_mv_zlarfg_kernel
 
@@ -1391,14 +1391,14 @@ extern "C" void launch_finish_w_col_kernel(dim3 *grid,
                                            const int sharedMem,
                                            hipStream_t stream,
                                            int n,
-                                           hipDoubleComplex tau,
+                                           hipDoubleComplex *tau,
                                            hipDoubleComplex *x,
                                            const int x_n1,
                                            const int x_lb1,
                                            hipDoubleComplex *y,
                                            const int y_n1,
                                            const int y_lb1) {
-  hipLaunchKernelGGL((finish_w_col_kernel), *grid, *block, sharedMem, stream, n, tau, x, x_n1, x_lb1, y, y_n1, y_lb1);
+  hipLaunchKernelGGL((finish_w_col_kernel), *grid, *block, sharedMem, stream, n, *tau, x, x_n1, x_lb1, y, y_n1, y_lb1);
 }
 // END finish_w_col_kernel
 
@@ -1727,14 +1727,14 @@ extern "C" void launch_stacked_zgemv_n_finish_w(dim3 *grid,
                                                 double *y,
                                                 const int y_n1,
                                                 const int y_lb1,
-                                                hipDoubleComplex tau,
+                                                hipDoubleComplex *tau,
                                                 hipDoubleComplex *x,
                                                 const int x_n1,
                                                 const int x_lb1,
                                                 hipDoubleComplex *y2,
                                                 const int y2_n1,
                                                 const int y2_lb1,
-                                                unsigned int finished) {
+                                                unsigned int *finished) {
   hipLaunchKernelGGL((stacked_zgemv_n_finish_w),
                      *grid,
                      *block,
@@ -1761,13 +1761,13 @@ extern "C" void launch_stacked_zgemv_n_finish_w(dim3 *grid,
                      y,
                      y_n1,
                      y_lb1,
-                     tau,
+                     *tau,
                      x,
                      x_n1,
                      x_lb1,
                      y2,
                      y2_n1,
                      y2_lb1,
-                     finished);
+                     *finished);
 }
 // END stacked_zgemv_n_finish_w
