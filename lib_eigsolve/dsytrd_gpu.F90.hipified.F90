@@ -296,7 +296,7 @@ contains
 
          blocks2D = dim3(ceiling(real(max(i, N - i))/32), ceiling(real(N - i)/8), 1)
          CALL launch_dsyr2_mv_dlarfg_kernel(blocks2D, threads2D, 0, hipDefaultStream, i, N - i, lda, ldw, ldw, A, a_n1,1,i, W,w_n1,&
-         1,iw, W, w_n1, 1,iw-1, A,lda, -lda*(i-1),inc_c_ptr(e,1_8*8*(N-1-1)) , inc_c_ptr(tau,1_8*8*(N-1-1)), finished)
+         1,iw, W, w_n1, 1,iw-1, A,lda, -lda*(i-1),inc_c_ptr(e,1_8*8*(i-1-1)) , inc_c_ptr(tau,1_8*8*(i-1-1)), finished)
 
          if (i > 1) then
             ! Generate elementary reflector H(i) to annihilate A(1:i-2, i)
@@ -307,9 +307,9 @@ contains
 
             blocks2D = dim3(ceiling(real(i - 1)/32), ceiling(real(2*(n - i))/8), 1)
             CALL launch_stacked_dgemv_T(blocks2D, threads2D, 0, hipDefaultStream, n - i, i - 1, lda, ldw, A,a_n1,1,i,&
-            W,w_n1,i,iw,A,lda,-lda*i,W, ldw-i,-ldw*iw-i,W,ldw-i,-ldw*iw-i)
+            W,w_n1,i,iw,A,lda,-lda*i,W, ldw-i,-ldw*(iw-1)-i,W,ldw-i,-ldw*iw-i)
             CALL launch_stacked_dgemv_N_finish_W(blocks2D, threads2D, 0, hipDefaultStream, i-1, n-i, lda, ldw,A,a_n1,1,&
-            i,W,w_n1,1,iw,W,ldw-i,-ldw*(iw-1)-i, W,ldw-i,-ldw*iw-i,W,ldw,-ldw*(iw-1), inc_c_ptr(tau,1_8*8*(N-1-1)), &
+            i,W,w_n1,1,iw,W,ldw-i,-ldw*(iw-1)-i, W,ldw-i,-ldw*iw-i,W,ldw,-ldw*(iw-1), inc_c_ptr(tau,1_8*8*(i-1-1)), &
             A,lda,-lda*(i-1), finished)
 
 
