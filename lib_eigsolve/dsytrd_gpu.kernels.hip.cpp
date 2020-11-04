@@ -4,6 +4,7 @@
 #include "hip/hip_runtime.h"
 #include "hip/math_functions.h"
 #include "hip/device_functions.h"
+#include "/opt/rocm/include/hip/hcc_detail/hip_atomic.h"
 #include <cstdio>
 
 namespace {
@@ -537,7 +538,7 @@ __global__ void dsyr2_mv_dlarfg_kernel(
     const int w_lb1, const int w_lb2, double *w2,
     const int w2_n1, const int w2_lb1, const int w2_lb2,
     double *x, const int x_n1, const int x_lb1, double tau, double e,
-    unsigned int finished) {
+    unsigned int *finished) {
 #undef _idx_v
 #define _idx_v(a, b) ((a - (v_lb1)) + v_n1 * (b - (v_lb2)))
 #undef _idx_w
@@ -594,7 +595,7 @@ __global__ void dsyr2_mv_dlarfg_kernel(
   nfinished = 0;
   __syncthreads();
   if ((tx + ty) == 2) {
-    nfinished = atomicInc(&finished, (nblocks - 1));
+    nfinished = atomicInc(&finished[0], (nblocks - 1));
   }
   __syncthreads();
   if ((nfinished < (nblocks - 1))) {
@@ -695,11 +696,11 @@ extern "C" void launch_dsyr2_mv_dlarfg_kernel(
     const int w_lb1, const int w_lb2, double *w2,
     const int w2_n1, const int w2_lb1, const int w2_lb2,
     double *x, const int x_n1, const int x_lb1, double *tau, double *e,
-    int *finished) {
+    unsigned int *finished) {
   hipLaunchKernelGGL((dsyr2_mv_dlarfg_kernel), *grid, *block, sharedMem, stream,
                      n, m, ldv, ldw, ldw2, v, v_n1, v_lb1, v_lb2, w, w_n1,
                      w_lb1, w_lb2, w2, w2_n1, w2_lb1, w2_lb2, x,
-                     x_n1, x_lb1, *tau, *e, *finished);
+                     x_n1, x_lb1, *tau, *e, finished);
 }
 // END dsyr2_mv_dlarfg_kernel
 
@@ -1124,7 +1125,7 @@ __global__ void stacked_dgemv_n_finish_w(
     const int w_lb1, const int w_lb2, double *z1, const int z1_n1,
     const int z1_lb1, double *z2, const int z2_n1, const int z2_lb1, double *y,
     const int y_n1, const int y_lb1, double tau, double *x, const int x_n1,
-    const int x_lb1, unsigned int finished) {
+    const int x_lb1, unsigned int *finished) {
 #undef _idx_v
 #define _idx_v(a, b) ((a - (v_lb1)) + v_n1 * (b - (v_lb2)))
 #undef _idx_w
@@ -1176,7 +1177,7 @@ __global__ void stacked_dgemv_n_finish_w(
   nfinished = 0;
   __syncthreads();
   if ((tx + ty) == 2) {
-    nfinished = atomicInc(&finished, (nblocks - 1));
+    nfinished = atomicInc(&finished[0], (nblocks - 1));
   }
   __syncthreads();
   if ((nfinished < (nblocks - 1))) {
@@ -1234,10 +1235,10 @@ extern "C" void launch_stacked_dgemv_n_finish_w(
     const int w_lb1, const int w_lb2, double *z1, const int z1_n1,
     const int z1_lb1, double *z2, const int z2_n1, const int z2_lb1, double *y,
     const int y_n1, const int y_lb1, double *tau, double *x, const int x_n1,
-    const int x_lb1, int *finished) {
+    const int x_lb1, unsigned int *finished) {
   hipLaunchKernelGGL((stacked_dgemv_n_finish_w), *grid, *block, sharedMem,
                      stream, m, n, ldv, ldw, v, v_n1,v_lb1, v_lb2, w,
                      w_n1, w_lb1, w_lb2, z1, z1_n1, z1_lb1, z2, z2_n1,
-                     z2_lb1, y, y_n1, y_lb1, *tau, x, x_n1, x_lb1, *finished);
+                     z2_lb1, y, y_n1, y_lb1, *tau, x, x_n1, x_lb1, finished);
 }
 // END stacked_dgemv_n_finish_w

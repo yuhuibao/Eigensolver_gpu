@@ -127,7 +127,7 @@ contains
         istat = hipMemcpy(w, w_h, 1_8*(8)*(N), hipMemcpyHostToDevice)
 
         !work_h(inde:inde+N-1) = work(inde:inde+N-1)
-        istat = hipMemcpy(inc_c_ptr(work, 1_8*_idx_work(inde)*8), inc_c_ptr(work_h, 1_8*8*_idx_work_h(inde)),&
+        istat = hipMemcpy(inc_c_ptr(work, 1_8*_idx_work(inde)*8), inc_c_ptr(work_h, 1_8*8*_idx_work_h(inde)), &
                           1_8*(8)*((inde + N - 1) - (inde) + 1), hipMemcpyHostToDevice)
 
         ! Restore lower triangular of A (works if called from zhegvd only!)
@@ -152,13 +152,13 @@ contains
 #undef _idx_w
 #define _idx_w(a) ((a-(w_lb1)))
         !istat = cudaMemcpy2D(Z(1, 1), ldz, Z_h, ldz_h, N, NZ)
-        istat = hipMemcpy2D(inc_c_ptr(Z, _idx_Z(1,1)*8*1_8), ldz*8*1_8,&
-        inc_c_ptr(Z_h, _idx_Z_h(1,1)*8*1_8), ldz_h*8*1_8,&
-        N*8*1_8, NZ*1_8, hipMemcpyHostToDevice)
+        istat = hipMemcpy2D(inc_c_ptr(Z, _idx_Z(1, 1)*8*1_8), ldz*8*1_8, &
+                            inc_c_ptr(Z_h, _idx_Z_h(1, 1)*8*1_8), ldz_h*8*1_8, &
+                            N*8*1_8, NZ*1_8, hipMemcpyHostToDevice)
         !w(1:N) = w_h(1:N)
-        istat = hipMemcpy(inc_c_ptr(w, _idx_w(1)*(8)*1_8),&
-         inc_c_ptr(w_h, _idx_w_h(1)*8*1_8),&
-          1_8*(8)*(N), hipMemcpyHostToDevice)
+        istat = hipMemcpy(inc_c_ptr(w, _idx_w(1)*(8)*1_8), &
+                          inc_c_ptr(w_h, _idx_w_h(1)*8*1_8), &
+                          1_8*(8)*(N), hipMemcpyHostToDevice)
 
       !! Call DORMTR to rotate eigenvectors to obtain result for original A matrix
       !! JR Note: Eventual function calls from DORMTR called directly here with associated indexing changes
@@ -172,18 +172,17 @@ contains
 
             ! Form block reflector T in stream 1
             call dlarft_gpu(i + ib - 1, ib, inc_c_ptr(A, lda*(2 + i - 1 - 1)*8*1_8), lda, &
-            inc_c_ptr(work, _idx_w(indtau + i - 1)*8*1_8), &
-            inc_c_ptr(work, _idx_w(indwrk)*8*1_8), ldt,&
-            inc_c_ptr(work, _idx_w(indwk2)*8*1_8), ldt)
+                            inc_c_ptr(work, _idx_w(indtau + i - 1)*8*1_8), &
+                            inc_c_ptr(work, _idx_w(indwrk)*8*1_8), ldt, &
+                            inc_c_ptr(work, _idx_w(indwk2)*8*1_8), ldt)
 
             mi = i + ib - 1
             ! Apply reflector to eigenvectors in stream 2
-            call dlarfb_gpu(mi, NZ, ib, inc_c_ptr(A, lda*(2 + i - 1 - 1)*8*1_8), lda,&
-            inc_c_ptr(work, _idx_w(indwrk)*8*1_8), ldt, Z, ldz, &
-            inc_c_ptr(work, _idx_w(indwk3)*8*1_8), N,&
-            inc_c_ptr(work, _idx_w(indwk2)*8*1_8), ldt)
+            call dlarfb_gpu(mi, NZ, ib, inc_c_ptr(A, lda*(2 + i - 1 - 1)*8*1_8), lda, &
+                            inc_c_ptr(work, _idx_w(indwrk)*8*1_8), ldt, Z, ldz, &
+                            inc_c_ptr(work, _idx_w(indwk3)*8*1_8), N, &
+                            inc_c_ptr(work, _idx_w(indwk2)*8*1_8), ldt)
         end do
-
 
     end subroutine dsyevd_gpu_h
 
@@ -203,7 +202,7 @@ contains
         type(c_ptr), value :: W
         integer(c_int) :: W_n1, W_n2, W_lb1, W_lb2
 
-        integer                               :: i, j,istat1
+        integer                               :: i, j, istat1
         type(dim3)                            :: threads
         V_n1 = ldv
         V_n2 = K
@@ -219,7 +218,7 @@ contains
         W_n2 = K
         W_lb1 = 1
         W_lb2 = 1
-        istat = hipblasSetStream(hipblasHandle, stream1)
+        istat1 = hipblasSetStream(hipblasHandle, stream1)
         ! Prepare lower triangular part of block column for dsyrk call.
         ! Requires zeros in lower triangular portion and ones on diagonal.
         ! Store existing entries (excluding diagonal) in W
@@ -235,7 +234,7 @@ contains
 
         ! Finish forming T
         threads = dim3(64, 16, 1)
-     CALL launch_finish_t_block_kernel(dim3(1, 1, 1),threads, 0, stream1,n, ldt, T, t_n1, t_n2, t_lb1, t_lb2, tau,tau_n1,tau_lb1)
+    CALL launch_finish_t_block_kernel(dim3(1, 1, 1), threads, 0, stream1, n, ldt, T, t_n1, t_n2, t_lb1, t_lb2, tau, tau_n1, tau_lb1)
     end subroutine dlarft_gpu
 
     subroutine dlarfb_gpu(M, N, K, V, ldv, T, ldt, C, ldc, work, ldwork, W, ldw)
@@ -271,8 +270,8 @@ contains
         istat = hipblasdgemm(hipblasHandle, HIPBLAS_OP_T, HIPBLAS_OP_N, N, K, M, 1.0d0, C, ldc, v, ldv, 0.0d0, work, ldwork)
         istat = hipStreamSynchronize(stream1)
 
-      istat = hipblasdtrmm(hipblasHandle, HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_T, HIPBLAS_DIAG_NON_UNIT, N,&
-       K, 1.0d0, T, ldt, work, ldwork)
+        istat = hipblasdtrmm(hipblasHandle, HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_T, HIPBLAS_DIAG_NON_UNIT, N, &
+                             K, 1.0d0, T, ldt, work, ldwork)
 
         istat = hipEventRecord(event2, stream2)
         istat = hipblasdgemm(hipblasHandle, HIPBLAS_OP_N, HIPBLAS_OP_T, M, N, K, -1.0d0, V, ldv, work, ldwork, 1.0d0, c, ldc)

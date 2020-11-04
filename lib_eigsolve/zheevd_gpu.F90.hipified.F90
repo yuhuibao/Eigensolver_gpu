@@ -141,7 +141,8 @@ contains
       CALL launch_krnl_e26a05_0_auto(0, c_null_ptr, z, z_n1, z_n2, z_lb1, z_lb2, n, a, a_n1, a_n2, a_lb1, a_lb2)
 
       ! Call ZSTEDC to get eigenvalues/vectors of tridiagonal A on CPU
-      call zstedc('I', N, w_h, inc_c_ptr(rwork_h, 1_8*8*_idx_rwork_h(inde)), Z_h, ldz_h, work_h, lwork_h, inc_c_ptr(rwork_h, 1_8*8*_idx_rwork_h(indwrk)), llrwk, iwork_h, liwork_h, istat)
+      call zstedc('I', N, w_h, inc_c_ptr(rwork_h, 1_8*8*_idx_rwork_h(inde)), Z_h, ldz_h, work_h, lwork_h, &
+      inc_c_ptr(rwork_h, 1_8*8*_idx_rwork_h(indwrk)), llrwk, iwork_h, liwork_h, istat)
       if (istat /= 0) then
          write (*, *) "zheevd_gpu error: zstedc failed!"
          info = -1
@@ -273,12 +274,15 @@ contains
         work_n2 = K
       istat = hipblasSetStream(hipblasHandle, stream2)
       istat = hipStreamWaitEvent(stream2, event1, 0)
-      istat = hipblaszgemm(hipblasHandle, HIPBLAS_OP_C, HIPBLAS_OP_N, N, K, M, cmplx(1.0d0, 0,8), C, ldc, v, ldv, cmplx(1.0d0, 0,8), work, ldwork)
+      istat = hipblaszgemm(hipblasHandle, HIPBLAS_OP_C, HIPBLAS_OP_N, N, K, M, cmplx(1.0d0, 0,8), C, ldc, v, ldv, &
+      cmplx(1.0d0, 0,8), work, ldwork)
       istat = hipStreamSynchronize(stream1)
-      istat = hipblasztrmm(hipblasHandle, HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_C, HIPBLAS_DIAG_NON_UNIT, N, K, cmplx(1.0d0, 0,8), T, ldt, work, ldwork, work, ldwork)
+      istat = hipblasztrmm(hipblasHandle, HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_C, HIPBLAS_DIAG_NON_UNIT,&
+       N, K,cmplx(1.0d0, 0,8), T, ldt, work, ldwork)
 
       istat = hipEventRecord(event2, stream2)
-      istat = hipblaszgemm(hipblasHandle, HIPBLAS_OP_N, HIPBLAS_OP_C, M, N, K, cmplx(-1.0d0, 0,8), V, ldv, work, ldwork, cmplx(1.0d0, 0,8), C, ldc)
+      istat = hipblaszgemm(hipblasHandle, HIPBLAS_OP_N, HIPBLAS_OP_C, M, N, K, cmplx(-1.0d0, 0,8), V, ldv, work, ldwork,&
+       cmplx(1.0d0, 0,8), C, ldc)
 
       ! Restore clobbered section of block column (except diagonal)
       ! extracted to HIP C++ file

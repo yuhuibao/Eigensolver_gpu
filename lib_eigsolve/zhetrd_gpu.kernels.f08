@@ -36,7 +36,7 @@ module zhetrd_gpu_kernels
       type(c_ptr),value :: d
       integer(c_int),value,intent(IN) :: d_n1
       integer(c_int),value,intent(IN) :: d_lb1
-      INTEGER(kind=),value :: n
+      INTEGER,value :: n
     end subroutine
 
     subroutine launch_krnl_2b8e8f_0_auto(sharedMem,&

@@ -253,7 +253,7 @@ int ar_s_n1, ar_s_lb1, ar_s_n2, ar_s_lb2, r_s_n1, r_s_lb1;
       }
       __syncthreads();
        for (int k = 0; k <= (NTILES - 1); k += 1) {
-        if ((i <= n & (j + k * blockDim.y) <= n)) {
+        if ((i <= n && (j + k * blockDim.y) <= n)) {
           mysum = (mysum + ar_s[_idx_ar_s(tx, (ty + k * blockDim.y))] * x[_idx_x((j + k * blockDim.y))]);
         }
 
@@ -291,7 +291,7 @@ int ar_s_n1, ar_s_lb1, ar_s_n2, ar_s_lb2, r_s_n1, r_s_lb1;
         }
       }
       __syncthreads(); 
-      if ((ty == 1 & (jj + tx - 1) <= n)) { 
+      if ((ty == 1 && (jj + tx - 1) <= n)) { 
           istat = atomicAdd(y + _idx_y((jj + tx - 1)*8), r_s[_idx_r_s(tx)]); 
       }
       // !call __syncthreads()

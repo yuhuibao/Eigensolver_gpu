@@ -649,7 +649,7 @@ __global__ void zher2_mv_zlarfg_kernel(int n,
                                        const int x2_lb1,
                                        hipDoubleComplex tau,
                                        double e,
-                                       unsigned int finished) {
+                                       unsigned int* finished) {
 #undef _idx_v
 #define _idx_v(a, b) ((a - (v_lb1)) + v_n1 * (b - (v_lb2)))
 #undef _idx_w
@@ -722,7 +722,7 @@ __global__ void zher2_mv_zlarfg_kernel(int n,
   nfinished = 0;
   __syncthreads();
   if ((tx + ty) == 2) {
-    nfinished = atomicInc(&finished, (nblocks - 1));
+    nfinished = atomicInc(&finished[0], (nblocks - 1));
   }
   __syncthreads(); 
   if ((nfinished < (nblocks - 1))) {
@@ -887,7 +887,7 @@ extern "C" void launch_zher2_mv_zlarfg_kernel(dim3 *grid,
                      x2_lb1,
                      *tau,
                      *e,
-                     *finished);
+                     finished);
 }
 // END zher2_mv_zlarfg_kernel
 
@@ -1563,7 +1563,7 @@ __global__ void stacked_zgemv_n_finish_w(int m,
                                          hipDoubleComplex *y2,
                                          const int y2_n1,
                                          const int y2_lb1,
-                                         unsigned int finished) {
+                                         unsigned int* finished) {
 #undef _idx_v
 #define _idx_v(a, b) ((a - (v_lb1)) + v_n1 * (b - (v_lb2)))
 #undef _idx_w
@@ -1632,7 +1632,7 @@ __global__ void stacked_zgemv_n_finish_w(int m,
   nfinished = 0;
   __syncthreads();
   if ((tx + ty) == 2) {
-    nfinished = atomicInc(&finished, (nblocks - 1));
+    nfinished = atomicInc(&finished[0], (nblocks - 1));
   }
   __syncthreads();
   if ((nfinished < (nblocks - 1))) { 
@@ -1768,6 +1768,6 @@ extern "C" void launch_stacked_zgemv_n_finish_w(dim3 *grid,
                      y2,
                      y2_n1,
                      y2_lb1,
-                     *finished);
+                     finished);
 }
 // END stacked_zgemv_n_finish_w

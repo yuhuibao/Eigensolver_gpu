@@ -26,6 +26,7 @@ module zhegvdx_gpu
    use iso_c_binding
    use iso_c_binding_ext
    use hipblas
+   use rocsolver
 
    implicit none
 

@@ -2,7 +2,7 @@ APP=fort_gst
 
 CPPOBJS = dsygst_gpu_kernels.o dsytd2_gpu_kernels.o dsymv_gpu_kernels.o dsyevd_gpu_kernels.o dsygvdx_gpu_kernels.o dsytrd_gpu_kernels.o 
 FOBJS = dsytrd_gpu.F90.hipified.o dsyevd_gpu.F90.hipified.o dsygvdx_gpu.F90.hipified.o dsygst_gpu.F90.hipified.o 
-INTFOJBS = dsytrd_gpu.kernels.o dsyevd_gpu.kernels.o dsygvdx_gpu.kernels.o dsygst_gpu_kernels.
+INTFOJBS = dsytrd_gpu.kernels.o dsyevd_gpu.kernels.o dsygvdx_gpu.kernels.o dsygst_gpu_kernels.o
 
 MODULES_DIR=../../gpufort/modules/rocm3.5
 MODULES_DIR1=../../gpufort/modules/rocm-utils

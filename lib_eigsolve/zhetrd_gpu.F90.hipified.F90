@@ -78,6 +78,58 @@ module zhetd2_gpu_kernels
   
   
   end module zhetd2_gpu_kernels
+  module zhemv_gpu_kernels
+    use hip
+    implicit none
+  
+   
+    interface
+  
+      subroutine launch_zhemv_gpu(grid,&
+          block,&
+          sharedMem,&
+          stream,&
+          n,&
+          lda,&
+          a,&
+          a_n1,&
+          a_n2,&
+          a_lb1,&
+          a_lb2,&
+          x,&
+          x_n1,&
+          x_lb1,&
+          y,&
+          y_n1,&
+          y_lb1) bind(c, name="launch_zhemv_gpu")
+        use iso_c_binding
+        use hip
+        implicit none
+        type(dim3),intent(IN) :: grid
+        type(dim3),intent(IN) :: block
+        integer(c_int),intent(IN) :: sharedMem
+        type(c_ptr),value,intent(IN) :: stream
+        INTEGER,value :: n
+        INTEGER,value :: lda
+        type(c_ptr),value :: a
+        integer(c_int),value,intent(IN) :: a_n1
+        integer(c_int),value,intent(IN) :: a_n2
+        integer(c_int),value,intent(IN) :: a_lb1
+        integer(c_int),value,intent(IN) :: a_lb2
+        type(c_ptr),value :: x
+        integer(c_int),value,intent(IN) :: x_n1
+        integer(c_int),value,intent(IN) :: x_lb1
+        type(c_ptr),value :: y
+        integer(c_int),value,intent(IN) :: y_n1
+        integer(c_int),value,intent(IN) :: y_lb1
+      end subroutine
+  
+    end interface
+  
+    
+  
+  
+  end module zhemv_gpu_kernels
 module zhetrd_gpu
    use zhetrd_gpu_kernels
    use hip
@@ -91,7 +143,7 @@ contains
       use zhetrd_gpu_kernels
       use eigsolve_vars
 
-      use zhetd2_gpu
+      use zhetd2_gpu_kernels
       implicit none
       character                                 :: uplo
       integer                                   :: N, lda, lwork, nb, nx, ldwork, istat
@@ -109,7 +161,7 @@ contains
 
       complex(8), parameter                     :: cone = cmplx(1, 0, 8)
       real(8), parameter                        :: one = 1.0_8
-      type(dim3)                                :: threads
+      type(dim3)                                :: threads,grid
 
       d_n1 = n
       d_lb1 = 1
@@ -144,7 +196,7 @@ contains
          call zlatrd_gpu(uplo, i + nb - 1, nb, A, lda, e, tau, work, ldwork)
 
          ! Update trailing submatrix
-         call hipblaszher2k(hipblasHandle,HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb, -cone,&
+         istat = hipblaszher2k(hipblasHandle,HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb, -cone,&
          inc_c_ptr(A,1_8*16*lda*(i-1)), lda, work, ldwork, one, a, lda)
 
          k = k - nb
@@ -160,7 +212,7 @@ contains
          call zlatrd_gpu(uplo, i + nb - 1, nb, A, lda, e, tau, work, ldwork)
 
          ! Update trailing submatrix
-         call hipblaszher2k(hipblasHandle, HIPBLAS_FILL_MODE_UPPER,, HIPBLAS_OP_N, (i - 1), nb, -cone,&
+         istat = hipblaszher2k(hipblasHandle, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb, -cone,&
          inc_c_ptr(A,1_8*16*lda*(i-1)), lda, work, ldwork, one, a, lda)
 
       endif
@@ -182,12 +234,12 @@ contains
       use zhetrd_gpu_kernels
       use eigsolve_vars
 
-      use zhemv_gpu
+      use zhemv_gpu_kernels
       implicit none
       character                                  :: uplo
       integer                                    :: N, nb, lda, ldw, istat
       integer                                    :: i, j, k, iw
-      integer                                    :: blocks, threads
+      type(dim3)                                    :: threads
       type(c_ptr),value :: A 
       integer(c_int) :: A_n1, A_n2, A_lb1, A_lb2
       type(c_ptr),value :: W 
@@ -246,7 +298,8 @@ contains
          blocks2D = dim3(ceiling(real(max(i, N - i))/32), ceiling(real(N - i)/8), 1)
          !call zher2_mv_kernel<<<blocks2D, threads2D>>>(i, N-i, A(1, i+1), lda, W(1, iw+1), ldw, A(1, i), W(1, iw), ldw)
          CALL launch_zher2_mv_zlarfg_kernel(blocks2D, threads2D, 0, hipDefaultStream, i, N - i, lda, ldw, ldw, A, a_n1,1,i, W,w_n1,&
-         1,iw, W, w_n1, 1,iw-1, A,lda, -lda*(i-1),A,lda, -lda*(i-1),inc_c_ptr(e,1_8*8*(i-1-1)) , inc_c_ptr(tau,1_8*16*(i-1-1)), finished)
+         1,iw, W, w_n1, 1,iw-1, A,lda, -lda*(i-1),A,lda, -lda*(i-1),inc_c_ptr(e,1_8*8*(i-1-1)) , inc_c_ptr(tau,1_8*16*(i-1-1)),&
+          finished)
 
          if (i > 1) then
             ! Generate elementary reflector H(i) to annihilate A(1:i-2, i)
