@@ -180,7 +180,7 @@
 function test_launch_dsytd2_gpu()
   ! errorCode > 0 implies that the test has failed
   use iso_c_binding
-  use hip
+  use hipfort
   use dsytd2_gpu_kernels
   implicit none
   integer :: errorCode = 1

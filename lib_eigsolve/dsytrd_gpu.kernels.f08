@@ -2,7 +2,7 @@
           
            
 module dsytrd_gpu_kernels
-  use hip
+  use hipfort
   implicit none
 
  
@@ -22,7 +22,7 @@ module dsytrd_gpu_kernels
         a_lb1,&
         a_lb2) bind(c, name="launch_krnl_2b8e8f_0")
       use iso_c_binding
-      use hip
+      use hipfort
       implicit none
       type(dim3),intent(IN) :: grid
       type(dim3),intent(IN) :: block
@@ -51,7 +51,7 @@ module dsytrd_gpu_kernels
         a_lb1,&
         a_lb2) bind(c, name="launch_krnl_2b8e8f_0_auto")
       use iso_c_binding
-      use hip
+      use hipfort
       implicit none
       integer(c_int),intent(IN) :: sharedMem
       type(c_ptr),value,intent(IN) :: stream
@@ -78,7 +78,7 @@ module dsytrd_gpu_kernels
         n,&
         iw) bind(c, name="launch_krnl_37a79c_1")
       use iso_c_binding
-      use hip
+      use hipfort
       implicit none
       type(dim3),intent(IN) :: grid
       type(dim3),intent(IN) :: block
@@ -103,7 +103,7 @@ module dsytrd_gpu_kernels
         n,&
         iw) bind(c, name="launch_krnl_37a79c_1_auto")
       use iso_c_binding
-      use hip
+      use hipfort
       implicit none
       integer(c_int),intent(IN) :: sharedMem
       type(c_ptr),value,intent(IN) :: stream
@@ -128,7 +128,7 @@ module dsytrd_gpu_kernels
         x_n1,&
         x_lb1) bind(c, name="launch_dlarfg_kernel")
       use iso_c_binding
-      use hip
+      use hipfort
       implicit none
       type(dim3),intent(IN) :: grid
       type(dim3),intent(IN) :: block
@@ -170,7 +170,7 @@ module dsytrd_gpu_kernels
         e,&
         finished) bind(c, name="launch_dsyr2_mv_dlarfg_kernel")
       use iso_c_binding
-      use hip
+      use hipfort
       implicit none
       type(dim3),intent(IN) :: grid
       type(dim3),intent(IN) :: block
@@ -227,7 +227,7 @@ module dsytrd_gpu_kernels
         z2_n1,&
         z2_lb1) bind(c, name="launch_stacked_dgemv_t")
       use iso_c_binding
-      use hip
+      use hipfort
       implicit none
       type(dim3),intent(IN) :: grid
       type(dim3),intent(IN) :: block
@@ -271,7 +271,7 @@ module dsytrd_gpu_kernels
         y_n1,&
         y_lb1) bind(c, name="launch_finish_w_col_kernel")
       use iso_c_binding
-      use hip
+      use hipfort
       implicit none
       type(dim3),intent(IN) :: grid
       type(dim3),intent(IN) :: block
@@ -318,7 +318,7 @@ module dsytrd_gpu_kernels
         x_lb1,&
         finished) bind(c, name="launch_stacked_dgemv_n_finish_w")
       use iso_c_binding
-      use hip
+      use hipfort
       implicit none
       type(dim3),intent(IN) :: grid
       type(dim3),intent(IN) :: block

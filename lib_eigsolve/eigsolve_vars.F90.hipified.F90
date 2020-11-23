@@ -23,53 +23,55 @@
 
 ! Module containing various handles used for GPU eigensolver
 module eigsolve_vars
-   use hip
-   use iso_c_binding
-   use iso_c_binding_ext
-   use hipblas
+    use hipfort
+    use iso_c_binding
+    use iso_c_binding_ext
+    use hipfort_hipblas
+    use hipfort_check
 
-   use rocsolver
-   integer                        :: initialized = 0
-   type(c_ptr)             :: hipblasHandle
-   type(c_ptr)         :: rocsolverHandle
-   type(c_ptr) :: event1 = c_null_ptr, event2 = c_null_ptr, event3 = c_null_ptr
-   type(c_ptr) :: stream1 = c_null_ptr, stream2 = c_null_ptr, stream3 = c_null_ptr
-   type(c_ptr) :: devInfo_d = c_null_ptr
-   type(c_ptr) :: finished = c_null_ptr
-   integer, allocatable,target, dimension(:) :: hfinished
-   integer(c_int) :: finished_n1, finished_lb1
+    use hipfort_rocsolver
+    integer                        :: initialized = 0
+    type(c_ptr)             :: hipblasHandle
+    type(c_ptr)         :: rocsolverHandle
+    type(c_ptr) :: event1, event2, event3
+    type(c_ptr) :: stream1, stream2, stream3
+    type(c_ptr) :: devInfo_d
+    type(c_ptr) :: finished
+    integer, allocatable, target, dimension(:) :: hfinished
+    integer(c_int) :: finished_n1, finished_lb1
 
 contains
 
-   subroutine init_eigsolve_gpu()
-      use hip
-      use iso_c_binding
-      use iso_c_binding_ext
-      use hipblas
+    subroutine init_eigsolve_gpu()
+        use hipfort
+        use iso_c_binding
+        use iso_c_binding_ext
+        use hipfort_hipblas
+        use hipfort_check
 
+        implicit none
+        integer :: istat
+        hipblasHandle = c_null_ptr
+        if (initialized == 0) then
+            ! Configure shared memory to use 8 byte banks
+            call hipCheck(hipDeviceSetSharedMemConfig(hipSharedMemBankSizeEightByte))
 
-      implicit none
-      integer istat
-      hipblasHandle = c_null_ptr
-      if (initialized == 0) then
-         ! Configure shared memory to use 8 byte banks
-         istat = hipDeviceSetSharedMemConfig(hipSharedMemBankSizeEightByte)
+            istat = hipblasCreate(hipblasHandle)
+            !call rocsolverCheck(rocsolver_create_handle(rocsolverHandle))
+            istat = rocsolver_create_handle(rocsolverHandle)
+            call hipCheck(hipStreamCreate(stream1))
+            call hipCheck(hipStreamCreate(stream2))
+            call hipCheck(hipStreamCreate(stream3))
+            call hipCheck(hipEventCreate(event1))
+            call hipCheck(hipEventCreate(event2))
 
-         istat = hipblasCreate(hipblasHandle)
-         istat = rocsolver_create_handle(rocsolverHandle)
-         istat = hipStreamCreate(stream1)
-         istat = hipStreamCreate(stream2)
-         istat = hipStreamCreate(stream3)
-         istat = hipEventCreate(event1)
-         istat = hipEventCreate(event2)
-
-         initialized = 1
-         CALL hipCheck(hipMalloc(finished, 1_8*(4)*(1)))
-         call hipCheck(hipMalloc(devInfo_d,1_8*4))
-         allocate(hfinished(1))
-         hfinished(1) = 0
-         call hipCheck(hipMemcpy(finished, c_loc(hfinished),1_8*(4)*(1),hipMemcpyHostToDevice))
-      endif
-   end subroutine init_eigsolve_gpu
+            initialized = 1
+            CALL hipCheck(hipMalloc(finished, 1_8*(4)*(1)))
+            call hipCheck(hipMalloc(devInfo_d, 1_8*4))
+            allocate (hfinished(1))
+            hfinished(1) = 0
+            call hipCheck(hipMemcpy(finished, c_loc(hfinished), 1_8*(4)*(1), hipMemcpyHostToDevice))
+        endif
+    end subroutine init_eigsolve_gpu
 
 end module eigsolve_vars

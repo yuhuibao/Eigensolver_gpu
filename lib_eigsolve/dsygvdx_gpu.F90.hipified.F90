@@ -22,11 +22,12 @@
 !
 
 module dsygvdx_gpu
-    use hip
+    use hipfort
     use iso_c_binding
     use iso_c_binding_ext
-    use hipblas
-    use rocsolver
+    use hipfort_hipblas
+    use hipfort_rocsolver
+    use hipfort_check
     implicit none
 
 contains
@@ -125,7 +126,7 @@ contains
         Z_h_n2 = N
         w_n1 = N
         w_h_n1 = N
-    
+
         skip_host_copy = .FALSE.
         if (present(cskip_host_copy)) skip_host_copy = cskip_host_copy
 
@@ -152,7 +153,7 @@ contains
         ! 'L':only lower triangular part of A is processed, and replaced by lower triangular Cholesky factor L
         ! 'U':only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U
         istat = rocsolver_dpotrf(rocsolverHandle, rocblas_fill_upper, N, B, ldb, devInfo_d)
-        call hipCheck(hipMemcpy(c_loc(v_devInfo),devInfo_d, 1_8*(4)*(1),hipMemcpyDeviceToHost))
+        call hipCheck(hipMemcpy(c_loc(v_devInfo), devInfo_d, 1_8*(4)*(1), hipMemcpyDeviceToHost))
         istat = v_devInfo
         if (istat .ne. 0) then
             print *, "dsygvdx_gpu error: cusolverDnDpotrf failed!"
@@ -175,7 +176,7 @@ contains
 
         ! Triangle solve to get eigenvectors for original general eigenproblem
         istat = hipblasDtrsm(hipblasHandle, HIPBLAS_SIDE_LEFT, HIPBLAS_FILL_MODE_LOWER, HIPBLAS_OP_N, HIPBLAS_DIAG_NON_UNIT, N, &
-        iu - il + 1, one, B, ldb, Z, ldz)
+                             iu - il + 1, one, B, ldb, Z, ldz)
 #undef _idx_Z
 #define _idx_Z(a,b) ((a-(Z_lb1))+Z_n1*(b-(Z_lb2)))
 #undef _idx_Z_h

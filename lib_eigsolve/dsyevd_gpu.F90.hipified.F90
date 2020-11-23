@@ -23,10 +23,10 @@
 
 module dsyevd_gpu
     use dsyevd_gpu_kernels
-    use hip
+    use hipfort
     use iso_c_binding
     use iso_c_binding_ext
-    use hipblas
+    use hipfort_hipblas
 
     implicit none
 
@@ -188,7 +188,7 @@ contains
 
     subroutine dlarft_gpu(N, K, V, ldv, tau, T, ldt, W, ldw)
         use dsyevd_gpu_kernels
-        use hipblas
+        use hipfort_hipblas
 
         use eigsolve_vars
         implicit none
@@ -239,7 +239,7 @@ contains
 
     subroutine dlarfb_gpu(M, N, K, V, ldv, T, ldt, C, ldc, work, ldwork, W, ldw)
         use dsyevd_gpu_kernels
-        use hipblas
+        use hipfort_hipblas
 
         use eigsolve_vars
         implicit none

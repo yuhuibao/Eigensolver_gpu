@@ -22,10 +22,11 @@
 !
 
 module dsygst_gpu
-    use hip
+    use hipfort
     use iso_c_binding
     use iso_c_binding_ext
-    use hipblas
+    use hipfort_hipblas
+    use hipfort_check
 
 contains
 
@@ -33,6 +34,7 @@ contains
     subroutine dsygst_gpu_h(itype, uplo, N, A, lda, B, ldb, nb)
         use dsygst_gpu_kernels
         use eigsolve_vars
+        use hipfort_check
 
         implicit none
         integer, intent(in)                                   :: itype, N, lda, ldb, nb
@@ -59,15 +61,14 @@ contains
             print *, "Provided itype/uplo not supported!"
             return
         endif
-
-        istat = hipEventRecord(event2, stream2)
+        call hipCheck(hipEventRecord(event2, stream2))
 
         do k = 1, N, nb
             kb = min(N - k + 1, nb)
 
             istat = hipblasSetStream(hipblasHandle, stream1)
 
-            istat = hipStreamWaitEvent(stream1, event2, 0)
+            !call hipblasCheck(hipStreamWaitEvent(stream1, event2, 0))
             ! Populate subblock with complete symmetric entries (needed for DTRSM calls)
             ! extracted to HIP C++ file
             CALL launch_krnl_afb01f_0_auto(0, stream1, kb, a, a_n1, a_n2, a_lb1, a_lb2, k)
@@ -90,23 +91,23 @@ contains
 
                 ! Since the A subblock is fully populated, use gemm instead of hemm here
                 istat = hipblasdgemm(hipblasHandle, HIPBLAS_OP_N, HIPBLAS_OP_N, kb, (N - k - kb + 1), kb, &
-                        -half, inc_c_ptr(A, (lda*(k - 1) + k - 1)*8*1_8), lda - (k - 1), &
-                        inc_c_ptr(B, (ldb*(k + kb - 1) + k - 1)*8*1_8), &
-                        ldb - (k - 1),one, inc_c_ptr(A, (lda*(k + kb - 1) + k - 1)*8*1_8), lda - (k - 1))
+                                     -half, inc_c_ptr(A, (lda*(k - 1) + k - 1)*8*1_8), lda - (k - 1), &
+                                     inc_c_ptr(B, (ldb*(k + kb - 1) + k - 1)*8*1_8), &
+                                     ldb - (k - 1), one, inc_c_ptr(A, (lda*(k + kb - 1) + k - 1)*8*1_8), lda - (k - 1))
                 istat = hipblasdsyr2k(hipblasHandle, HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_T, (N - k - kb + 1), kb, -one, &
-                        inc_c_ptr(A, (lda*(k + kb - 1) + k - 1)*8*1_8), lda - (k - 1), &
-                        inc_c_ptr(B, (ldb*(k + kb - 1) + k - 1)*8*1_8), ldb - (k - 1), &
-                        one, inc_c_ptr(A, (lda*(k + kb - 1) + k + kb - 1)*8*1_8), lda - (k + kb - 1))
+                                      inc_c_ptr(A, (lda*(k + kb - 1) + k - 1)*8*1_8), lda - (k - 1), &
+                                      inc_c_ptr(B, (ldb*(k + kb - 1) + k - 1)*8*1_8), ldb - (k - 1), &
+                                      one, inc_c_ptr(A, (lda*(k + kb - 1) + k + kb - 1)*8*1_8), lda - (k + kb - 1))
 
                 istat = hipEventRecord(event2, stream2)
 
                 istat = hipblasdgemm(hipblasHandle, HIPBLAS_OP_N, HIPBLAS_OP_N, kb, (N - k - kb + 1), kb, -half, &
-                        inc_c_ptr(A, (lda*(k - 1) + k - 1)*8*1_8), lda - (k - 1), &
-                        inc_c_ptr(B, (ldb*(k + kb - 1) + k - 1)*8*1_8),ldb - (k - 1), &
-                        one,inc_c_ptr(A, (lda*(k + kb - 1) + k - 1)*8*1_8), lda - (k - 1))
+                                     inc_c_ptr(A, (lda*(k - 1) + k - 1)*8*1_8), lda - (k - 1), &
+                                     inc_c_ptr(B, (ldb*(k + kb - 1) + k - 1)*8*1_8), ldb - (k - 1), &
+                                     one, inc_c_ptr(A, (lda*(k + kb - 1) + k - 1)*8*1_8), lda - (k - 1))
 
                 istat = hipblasdtrsm(hipblasHandle, HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, HIPBLAS_OP_N, kb, &
-                                     N - k - kb + 1, one,inc_c_ptr(B, (ldb*(k + kb - 1) + k + kb - 1)*8*1_8), ldb-(k + kb - 1) ,&
+                                     N - k - kb + 1, one, inc_c_ptr(B, (ldb*(k + kb - 1) + k + kb - 1)*8*1_8), ldb - (k + kb - 1), &
                                      inc_c_ptr(A, (lda*(k + kb - 1) + k - 1)*8*1_8), lda - (k - 1))
 
             end if

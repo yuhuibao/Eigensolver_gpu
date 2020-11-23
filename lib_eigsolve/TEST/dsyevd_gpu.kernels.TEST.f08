@@ -81,7 +81,7 @@
 function test_launch_krnl_e26a05_0_auto()
   ! errorCode > 0 implies that the test has failed
   use iso_c_binding
-  use hip
+  use hipfort
   use dsyevd_gpu_kernels
   implicit none
   integer :: errorCode = 1
@@ -154,7 +154,7 @@ end function
 function test_launch_krnl_b1f342_1_auto()
   ! errorCode > 0 implies that the test has failed
   use iso_c_binding
-  use hip
+  use hipfort
   use dsyevd_gpu_kernels
   implicit none
   integer :: errorCode = 1
@@ -234,7 +234,7 @@ end function
 function test_launch_krnl_b95769_2_auto()
   ! errorCode > 0 implies that the test has failed
   use iso_c_binding
-  use hip
+  use hipfort
   use dsyevd_gpu_kernels
   implicit none
   integer :: errorCode = 1
@@ -344,7 +344,7 @@ end function
 function test_launch_finish_t_block_kernel()
   ! errorCode > 0 implies that the test has failed
   use iso_c_binding
-  use hip
+  use hipfort
   use dsyevd_gpu_kernels
   implicit none
   integer :: errorCode = 1
