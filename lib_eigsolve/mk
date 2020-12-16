@@ -4,7 +4,7 @@ CPPOBJS = dsygst_gpu_kernels.o dsytd2_gpu_kernels.o dsymv_gpu_kernels.o dsyevd_g
 FOBJS = dsytrd_gpu.F90.hipified.o dsyevd_gpu.F90.hipified.o dsygvdx_gpu.F90.hipified.o dsygst_gpu.F90.hipified.o 
 INTFOJBS = dsytrd_gpu.kernels.o dsyevd_gpu.kernels.o dsygvdx_gpu.kernels.o dsygst_gpu_kernels.o iso_c_binding_ext.o
 
-MODULES_DIR=/usr/local/include/amdgcn
+MODULES_DIR=/opt/rocm/hipfort/include/amdgcn
 MODULES_DIR1=../../gpufort/modules/rocm-utils
 CXX=hipcc -g -DHIP_ENABLE_PRINTF
 FC=gfortran -g -cpp
