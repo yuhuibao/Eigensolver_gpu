@@ -148,9 +148,6 @@ module dsytrd_gpu_kernels
         stream,&
         n,&
         m,&
-        ldv,&
-        ldw,&
-        ldw2,&
         v,&
         v_n1,&
         v_lb1,&
@@ -178,9 +175,6 @@ module dsytrd_gpu_kernels
       type(c_ptr),value,intent(IN) :: stream
       INTEGER,value :: n
       INTEGER,value :: m
-      INTEGER,value :: ldv
-      INTEGER,value :: ldw
-      INTEGER,value :: ldw2
       type(c_ptr),value :: v
       integer(c_int),value,intent(IN) :: v_n1
       integer(c_int),value,intent(IN) :: v_lb1
@@ -207,8 +201,6 @@ module dsytrd_gpu_kernels
         stream,&
         m,&
         n,&
-        ldv,&
-        ldw,&
         v,&
         v_n1,&
         v_lb1,&
@@ -235,8 +227,6 @@ module dsytrd_gpu_kernels
       type(c_ptr),value,intent(IN) :: stream
       INTEGER,value :: m
       INTEGER,value :: n
-      INTEGER,value :: ldv
-      INTEGER,value :: ldw
       type(c_ptr),value :: v
       integer(c_int),value,intent(IN) :: v_n1
       integer(c_int),value,intent(IN) :: v_lb1
@@ -293,8 +283,6 @@ module dsytrd_gpu_kernels
         stream,&
         m,&
         n,&
-        ldv,&
-        ldw,&
         v,&
         v_n1,&
         v_lb1,&
@@ -326,8 +314,6 @@ module dsytrd_gpu_kernels
       type(c_ptr),value,intent(IN) :: stream
       INTEGER,value :: m
       INTEGER,value :: n
-      INTEGER,value :: ldv
-      INTEGER,value :: ldw
       type(c_ptr),value :: v
       integer(c_int),value,intent(IN) :: v_n1
       integer(c_int),value,intent(IN) :: v_lb1

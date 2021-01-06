@@ -82,50 +82,22 @@ contains
         implicit none
         integer                                     :: N, m, lda, ldb, ldz, il, iu, ldz_h, info, nb
         integer                                     :: lwork_h, liwork_h, lwork, istat
-        type(c_ptr), value :: work
-        integer(c_int) :: work_n1, work_lb1
-
-        type(c_ptr), value :: work_h
-        integer(c_int) :: work_h_n1, work_h_lb1
-
-        type(c_ptr), value :: iwork_h
-        integer(c_int) :: iwork_h_n1, iwork_h_lb1
+        real(8), target,dimension(1:lwork)         :: work
+        real(8), target,dimension(1:lwork_h)       :: work_h
+        integer, target,dimension(1:liwork_h)     :: iwork_h
 
         logical, optional                           :: cskip_host_copy
 
-        type(c_ptr), value :: A
-        integer(c_int) :: A_n1, A_n2, A_lb1 = 1, A_lb2 = 1
-        type(c_ptr), value :: B
-        integer(c_int) :: B_n1, B_n2, B_lb1 = 1, B_lb2 = 1
-        type(c_ptr), value :: Z
-        integer(c_int) :: Z_n1, Z_n2, Z_lb1 = 1, Z_lb2 = 1
-        type(c_ptr), value :: Z_h
-        integer(c_int) :: Z_h_n1, Z_h_n2, Z_h_lb1 = 1, Z_h_lb2 = 1
-        type(c_ptr), value :: w
-        integer(c_int) :: w_n1, w_lb1 = 1
-        type(c_ptr), value :: w_h
-        integer(c_int) :: w_h_n1, w_h_lb1 = 1
+        real(8), target,dimension(1:lda, 1:N) :: A
+        real(8), target,dimension(1:ldb, 1:N)      :: B
+        real(8), target,dimension(1:ldz, 1:N)      :: Z
+        real(8), target,dimension(1:ldz_h, 1:N)    :: Z_h
+        real(8), target,dimension(1:N)             :: w
+        real(8), target,dimension(1:N)             :: w_h
         real(c_double), parameter :: one = 1.d0
         integer :: i, j
         logical :: skip_host_copy
-        integer, target :: v_devInfo
-        work_n1 = lwork
-        work_lb1 = 1
-        work_h_n1 = lwork_h
-        work_h_lb1 = 1
-        iwork_h_n1 = liwork_h
-        iwork_h_lb1 = 1
-        A_n1 = lda
-        A_n2 = N
-        B_n1 = ldb
-        B_n2 = N
-        Z_n1 = ldz
-        Z_n2 = N
-        info = 0
-        Z_h_n1 = ldz_h
-        Z_h_n2 = N
-        w_n1 = N
-        w_h_n1 = N
+        integer, target :: v_devInfo(1)
 
         skip_host_copy = .FALSE.
         if (present(cskip_host_copy)) skip_host_copy = cskip_host_copy
@@ -150,11 +122,11 @@ contains
         if (initialized == 0) call init_eigsolve_gpu
 
         ! Compute cholesky factorization of B
-        ! 'L':only lower triangular part of A is processed, and replaced by lower triangular Cholesky factor L
-        ! 'U':only upper triangular part of A is processed, and replaced by upper triangular Cholesky factor U
-        istat = rocsolver_dpotrf(rocsolverHandle, rocblas_fill_upper, N, B, ldb, devInfo_d)
-        call hipCheck(hipMemcpy(c_loc(v_devInfo), devInfo_d, 1_8*(4)*(1), hipMemcpyDeviceToHost))
-        istat = v_devInfo
+        ! 'L':only lower triangular part of B is processed, and replaced by lower triangular Cholesky factor L
+        ! 'U':only upper triangular part of B is processed, and replaced by upper triangular Cholesky factor U
+        istat = rocsolver_dpotrf(rocsolverHandle, rocblas_fill_upper, N, c_loc(B), ldb, c_loc(devInfo_d))
+        call hipCheck(hipMemcpy(v_devInfo, devInfo_d, 1, hipMemcpyDeviceToHost))
+        istat = v_devInfo(1)
         if (istat .ne. 0) then
             print *, "dsygvdx_gpu error: cusolverDnDpotrf failed!"
             info = -1
@@ -164,7 +136,7 @@ contains
         ! Store lower triangular part of A in Z
         ! extracted to HIP C++ file
         ! TODO(gpufort) fix arguments
-        CALL launch_krnl_959801_0_auto(0, stream1, z, z_n1, z_n2, z_lb1, z_lb2, n, a, a_n1, a_n2, a_lb1, a_lb2)
+        CALL launch_krnl_959801_0_auto(0, stream1, c_loc(z), ldz, N, 1, 1, n, c_loc(a), lda, N, 1, 1)
 
         ! Reduce to standard eigenproblem
         nb = 448
@@ -175,18 +147,13 @@ contains
                           work_h, lwork_h, iwork_h, liwork_h, Z_h, ldz_h, w_h, info)
 
         ! Triangle solve to get eigenvectors for original general eigenproblem
-        istat = hipblasDtrsm(hipblasHandle, HIPBLAS_SIDE_LEFT, HIPBLAS_FILL_MODE_LOWER, HIPBLAS_OP_N, HIPBLAS_DIAG_NON_UNIT, N, &
-                             iu - il + 1, one, B, ldb, Z, ldz)
-#undef _idx_Z
-#define _idx_Z(a,b) ((a-(Z_lb1))+Z_n1*(b-(Z_lb2)))
-#undef _idx_Z_h
-#define _idx_Z_h(a,b) ((a-(Z_h_lb1))+Z_h_n1*(b-(Z_h_lb2)))
+        istat = hipblasDtrsm(hipblasHandle, HIPBLAS_SIDE_LEFT, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, HIPBLAS_DIAG_NON_UNIT, N, &
+                             iu - il + 1, one, c_loc(B), ldb, c_loc(Z), ldz)
 
         ! Copy final eigenvectors to host
         if (.not. (skip_host_copy)) then
-            istat = hipMemcpy2D(inc_c_ptr(z_h, _idx_Z_h(1, 1)*8*1_8), 1_8*(ldz_h)*(8), &
-                                inc_c_ptr(z, _idx_Z(1, 1)*8*1_8), 1_8*(ldz)*(8), &
-                                1_8*(N)*(8), 1_8*(m)*(1), hipMemcpyDeviceToHost)
+            istat = hipMemcpy2D(z_h, ldz_h, z, ldz, &
+                                N, M, hipMemcpyDeviceToHost)
             if (istat .ne. 0) then
                 print *, "dsygvdx_gpu error: cudaMemcpy2D failed!"
                 info = -1

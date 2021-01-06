@@ -29,25 +29,19 @@ module eigsolve_vars
     use hipfort_hipblas
     use hipfort_check
 
-    use hipfort_rocsolver
+    use hipfort_rocblas
     integer                        :: initialized = 0
     type(c_ptr)             :: hipblasHandle
     type(c_ptr)         :: rocsolverHandle
     type(c_ptr) :: event1, event2, event3
     type(c_ptr) :: stream1, stream2, stream3
-    type(c_ptr) :: devInfo_d
-    type(c_ptr) :: finished
-    integer, allocatable, target, dimension(:) :: hfinished
-    integer(c_int) :: finished_n1, finished_lb1
+    integer, pointer :: devInfo_d(:)
+    integer, pointer :: finished(:)
+    integer, target :: hfinished(1)
 
 contains
 
     subroutine init_eigsolve_gpu()
-        use hipfort
-        use iso_c_binding
-        use iso_c_binding_ext
-        use hipfort_hipblas
-        use hipfort_check
 
         implicit none
         integer :: istat
@@ -56,9 +50,8 @@ contains
             ! Configure shared memory to use 8 byte banks
             call hipCheck(hipDeviceSetSharedMemConfig(hipSharedMemBankSizeEightByte))
 
-            istat = hipblasCreate(hipblasHandle)
-            !call rocsolverCheck(rocsolver_create_handle(rocsolverHandle))
-            istat = rocsolver_create_handle(rocsolverHandle)
+            call hipblasCheck(hipblasCreate(hipblasHandle))
+            call rocsolverCheck(rocblas_create_handle(rocsolverHandle))
             call hipCheck(hipStreamCreate(stream1))
             call hipCheck(hipStreamCreate(stream2))
             call hipCheck(hipStreamCreate(stream3))
@@ -66,11 +59,10 @@ contains
             call hipCheck(hipEventCreate(event2))
 
             initialized = 1
-            CALL hipCheck(hipMalloc(finished, 1_8*(4)*(1)))
-            call hipCheck(hipMalloc(devInfo_d, 1_8*4))
-            allocate (hfinished(1))
+            CALL hipCheck(hipMalloc(finished, 1))
+            call hipCheck(hipMalloc(devInfo_d, 1))
             hfinished(1) = 0
-            call hipCheck(hipMemcpy(finished, c_loc(hfinished), 1_8*(4)*(1), hipMemcpyHostToDevice))
+            call hipCheck(hipMemcpy(finished, hfinished, 1, hipMemcpyHostToDevice))
         endif
     end subroutine init_eigsolve_gpu
 

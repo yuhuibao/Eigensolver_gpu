@@ -170,10 +170,8 @@ hipDoubleComplex conj(hipDoubleComplex &z) { return hipConj(z); }
 */
 
 __global__ void dsymv_gpu(int n,
-                          int lda,
                           double *a,
                           const int a_n1,
-                          const int a_n2,
                           const int a_lb1,
                           const int a_lb2,
                           double *x,
@@ -308,10 +306,8 @@ extern "C" void launch_dsymv_gpu(dim3 *grid,
                                  const int sharedMem,
                                  hipStream_t stream,
                                  int n,
-                                 int lda,
                                  double *a,
                                  const int a_n1,
-                                 const int a_n2,
                                  const int a_lb1,
                                  const int a_lb2,
                                  double *x,
@@ -320,6 +316,6 @@ extern "C" void launch_dsymv_gpu(dim3 *grid,
                                  double *y,
                                  const int y_n1,
                                  const int y_lb1) {
-  hipLaunchKernelGGL((dsymv_gpu), *grid, *block, sharedMem, stream, n, lda, a, a_n1, a_n2, a_lb1, a_lb2, x, x_n1, x_lb1, y, y_n1, y_lb1);
+  hipLaunchKernelGGL((dsymv_gpu), *grid, *block, sharedMem, stream, n, a, a_n1, a_lb1, a_lb2, x, x_n1, x_lb1, y, y_n1, y_lb1);
 }
 // END dsymv_gpu
