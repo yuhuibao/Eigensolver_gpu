@@ -8,7 +8,6 @@ MODULES_DIR=/opt/rocm/hipfort/include/amdgcn
 MODULES_DIR1=../../gpufort/modules/rocm-utils
 CXX=hipcc -g -DHIP_ENABLE_PRINTF
 FC=gfortran -g -cpp
-LDOPTS = -lstdc++ -L/opt/rocm/lib -lhip_hcc
 all: lib_eigsolve.a
 
 eigsolve_vars.o: eigsolve_vars.F90.hipified.F90

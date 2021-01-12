@@ -7,8 +7,8 @@ contains
         use hipfort_hipblas
         use hipfort_check
         real(8), allocatable, dimension(:, :), target         :: A, temp
-        !real(8), allocatable, dimension(:,:), device :: A_d, temp_d
-        type(c_ptr) :: A_d, temp_d
+        real(8), pointer, dimension(:,:) :: A_d, temp_d
+        !type(c_ptr) :: A_d, temp_d
         real(8)                                         :: rv
         integer                                         :: i, j, N, istat
         type(c_ptr) :: hipblasHandle = c_null_ptr
@@ -32,15 +32,15 @@ contains
 
         !allocate(A_d, source = A)
         !allocate(temp_d, source = temp)
-        call hipCheck(hipMalloc(A_d, N*N*8*1_8))
-        call hipCheck(hipMemcpy(A_d, c_loc(A), N*N*8*1_8, hipMemcpyHostToDevice))
-        call hipCheck(hipMalloc(temp_d, N*N*8*1_8))
-        call hipCheck(hipMemcpy(temp_d, c_loc(temp), N*N*8*1_8, hipMemcpyHostToDevice))
+        call hipCheck(hipMalloc(A_d, N,N))
+        call hipCheck(hipMemcpy(A_d, A, N*N, hipMemcpyHostToDevice))
+        call hipCheck(hipMalloc(temp_d, N,N))
+        call hipCheck(hipMemcpy(temp_d, temp, N*N, hipMemcpyHostToDevice))
         ! Multiply temp by transpose of temp to get positive definite A
         istat = hipblasCreate(hipblasHandle)
         istat = hipblasdgemm(hipblasHandle, HIPBLAS_OP_T, HIPBLAS_OP_N, N, N, N, 1.d0, temp_d, N, temp_d, N, 0.d0, A_d, N)
 
-        call hipCheck(hipMemcpy(c_loc(A), A_d, N*N*8*1_8, hipMemcpyHostToDevice))
+        call hipCheck(hipMemcpy(A, A_d, N*N, hipMemcpyHostToDevice))
         deallocate (temp)
         call hipCheck(hipFree(A_d))
         call hipCheck(hipFree(temp_d))
@@ -55,33 +55,28 @@ program main
     use dsygvdx_gpu
     use funcs
     use hipfort_check
-    !use compare_utils
+    use utils
     implicit none
     integer(c_int), parameter :: bytes_per_element = 8 !double precision
     integer                                         :: N, M, i, j, info, lda, istat
     integer                                         :: n1, n2, m1, m2, lda1, lda2
-    integer                                         :: lwork_d, lrwork_d, lwork, lrwork, liwork, il, iu
+    integer                                         :: lwork_d, lwork, lrwork, liwork, il, iu,lwork1,liwork1
     character(len=20)                               :: arg
-    character(:), allocatable                        :: file1, file2
     real(8)                                         :: ts, te, wallclock
     real(8), dimension(:, :), allocatable, target            :: A1, A2, Aref
     real(8), dimension(:, :), allocatable, target            :: B1, B2, Bref
+    real(8),pointer, dimension(:,:)    :: Z1, Z2
+    
+    real(8),pointer, dimension(:,:)    :: A2_d, B2_d, Z2_d
+    
+    real(8),pointer, dimension(:)      :: work
+    real(8),pointer, dimension(:)      :: w1, w2
+    integer,pointer, dimension(:)      :: iwork
+    real(8),pointer, dimension(:)      :: work_d
+    
+    real(8),pointer, dimension(:)      :: w2_d
 
-    !real(8), dimension(:,:), allocatable, pinned    :: Z1, Z2
-    type(c_ptr) :: Z1, Z2
-    !real(8), dimension(:,:), allocatable, device    :: A2_d, B2_d, Z2_d
-    type(c_ptr) :: A2_d, B2_d, Z2_d
-    !real(8), dimension(:), allocatable, pinned      :: work
-    type(c_ptr) :: work
-    !real(8), dimension(:), allocatable, pinned      :: w1, w2, rwork
-    type(c_ptr) :: w1, w2
-    !integer, dimension(:), allocatable, pinned      :: iwork
-    type(c_ptr) ::  iwork
-    !real(8), dimension(:), allocatable, device      :: work_d
-    type(c_ptr) :: work_d
-    !real(8), dimension(:), allocatable, device      :: w2_d, rwork_d
-    type(c_ptr) :: w2_d
-    ! Parse command line arguments
+    
     i = command_argument_count()
 
     if (i == 1) then
@@ -93,86 +88,95 @@ program main
 
         ! Create random positive-definite hermetian matrices on host
         call create_random_symmetric_pd(Aref, N)
+        !call print_matrix(Aref)
         call create_random_symmetric_pd(Bref, N)
 
-    elseif (i == 2) then
-        print *, "Reading  matrices from files ..."
-        print *, "Unformatted files with n,m,lda "
-        print *, "A(lda,n) B(lda,n)"
-        call get_command_argument(1, arg)
-        file1 = trim(arg)
-        call get_command_argument(2, arg)
-        file2 = trim(arg)
-        open (UNIT=13, FILE=file1, ACTION="read", FORM="unformatted")
-        open (UNIT=14, FILE=file2, ACTION="read", FORM="unformatted")
-        read (13) n1, m1, lda1
-        read (14) n2, m2, lda2
-        if (n1 /= n2 .or. m1 /= m2 .or. lda1 /= lda2) then
-            print *, "expecting A and B to have same N,M,LDA"
-            call exit
-        end if
-        N = n1
-        M = m1
-        LDA = lda1
-        print *, "n,m,lda from files:", n, m, lda
-        allocate (Aref(lda, N))
-        allocate (Bref(lda, N))
-        read (13) Aref(1:n, 1:n)
-        read (14) Bref(1:n, 1:n)
-        close (13)
-        close (14)
-    else
-        print *, "Usage: ./main[N]"
-        call exit
-    endif
+    
 
     print *, "Running with N = ", N
-
-    ! Allocate/Copy matrices to device
+    endif
+   ! Allocate/Copy matrices to device
     allocate (A1, source=Aref)
     allocate (A2, source=Aref)
-    !allocate(A2_d, source = Aref)
-    call hipCheck(hipMalloc(A2_d, lda*N*bytes_per_element*1_8))
-    call hipCheck(hipMemcpy(A2_d, c_loc(Aref), lda*N*bytes_per_element*1_8, hipMemcpyHostToDevice))
+    
+    call hipCheck(hipMalloc(A2_d, lda,N))
+    call hipCheck(hipMemcpy(A2_d, Aref, lda*N, hipMemcpyHostToDevice))
     allocate (B1, source=Bref)
     allocate (B2, source=Bref)
-    !allocate(B2_d, source = Bref)
-    call hipCheck(hipMalloc(B2_d, lda*N*bytes_per_element*1_8))
-    call hipCheck(hipMemcpy(B2_d, c_loc(Bref), lda*N*bytes_per_element*1_8, hipMemcpyHostToDevice))
-    !allocate (Z1, source=Aref)
-    !allocate (Z2, source=Aref)
-    call hipCheck(hipMallocHost(Z1, lda*N*bytes_per_element*1_8))
-    call hipCheck(hipMallocHost(Z2, lda*N*bytes_per_element*1_8))
-    !allocate(Z2_d, source = Aref)
-    call hipCheck(hipMalloc(Z2_d, lda*N*bytes_per_element*1_8))
-    call hipCheck(hipMemset(Z2_d, 0, lda*N*bytes_per_element*1_8))
+    
+    call hipCheck(hipMalloc(B2_d, lda,N))
+    call hipCheck(hipMemcpy(B2_d, Bref, lda*N, hipMemcpyHostToDevice))
 
-    call hipCheck(hipMallocHost(w1, N*bytes_per_element*1_8))
-    call hipCheck(hipMallocHost(w2, N*bytes_per_element*1_8))
-    !allocate(w2_d, source = w2)
-    call hipCheck(hipMalloc(w2_d, N*bytes_per_element*1_8))
-    call hipCheck(hipMemset(w2_d, 0, N*bytes_per_element*1_8))
+    call hipCheck(hipHostMalloc(Z1, [lda,N]))
+    call hipCheck(hipHostMalloc(Z2, lda,N))
+    
+    call hipCheck(hipMalloc(Z2_d, lda,N))
+    call hipCheck(hipMemset(Z2_d, 0, lda*N))
+
+    call hipCheck(hipHostMalloc(w1, N))
+    call hipCheck(hipHostMalloc(w2, N))
+    
+    call hipCheck(hipMalloc(w2_d, N))
+    call hipCheck(hipMemset(w2_d, 0, N))
 
     ! Initialize solvers
-    call init_eigsolve_gpu()
+  call init_eigsolve_gpu()
 
-    iu = M
-    il = 1
-    lwork = 1 + 6*N + 2*N*N
-    liwork = 3 + 5*N
+  !! Solving generalized eigenproblem using DSYGVD
+  ! CASE 1: CPU _____________________________________________
+  print*
+  print*, "CPU_____________________"
+  lwork = 1 + 6*N + 2*N*N
+  liwork = 3 + 5*N
+  call hipCheck(hipHostMalloc(work, lwork))
+  call hipCheck(hipHostMalloc(iwork, liwork))
+  call dsygvd(1, 'V', 'U', N, A1, lda, B1, lda, w1, work, -1, iwork, -1, istat)
+  if (istat /= 0) write(*,*) 'CPU dsygvd worksize failed'
+  lwork = work(1);; liwork = iwork(1)
+  
+  !call print_vector(iwork,liwork)
+  call hipCheck(hipHostFree(work))
+  call hipCheck(hipHostFree(iwork))
+  call hipCheck(hipHostMalloc(work, lwork))
+  call hipCheck(hipHostMalloc(iwork, liwork))
 
-    !allocate (work(lwork), iwork(liwork))
+  A1 = Aref
+  B1 = Bref
+  ! Run once before timing
+  call dsygvd(1, 'V', 'U', N, A1, lda, B1, lda, w1, work, lwork, iwork, liwork, istat)
+  if (istat /= 0) write(*,*) 'CPU dsygvd failed. istat = ', istat
 
-    call hipCheck(hipMallocHost(work, lwork*bytes_per_element*1_8))
-    call hipCheck(hipMallocHost(iwork, liwork*4*1_8))
+  A1 = Aref
+  B1 = Bref
+  ts = wallclock()
+  call nvtxStartRange("CPU DSYGVD",1)
+  call dsygvd(1, 'V', 'U', N, A1, lda, B1, lda, w1, work, lwork, iwork, liwork, istat)
+  call nvtxEndRange
+  te = wallclock()
+  if (istat /= 0) write(*,*) 'CPU dsygvd failed. istat = ', istat
 
-    lwork_d = 2*64*64 + 66*N
-    !allocate (work_d(1*lwork_d))
-    call hipCheck(hipMalloc(work_d, lwork_d*bytes_per_element*1_8))
-    ts = wallclock()
-    call dsygvdx_gpu_h(N, A2_d, lda, B2_d, lda, Z2_d, lda, il, iu, w2_d, work_d, lwork_d, &
-                       work, lwork, iwork, liwork, Z2, lda, w2, istat)
-    te = wallclock()
-    print *, "Time for CUSTOM dsygvd/x = ", (te - ts)*1000.0
-    if (istat /= 0) write (*, *) 'dsygvdx_gpu failed'
+  print*, "\tTime for CPU dsygvd = ", (te - ts)*1000.0
+  print*
+
+! CASE 4: using CUSTOM ____________________________________________________________________
+  print*
+  print*, "CUSTOM_____________________"
+  iu = M
+  il = 1
+  lwork = 1 + 6*N + 2*N*N
+  liwork = 3 + 5*N
+  call hipCheck(hipHostFree(work))
+  call hipCheck(hipHostFree(iwork))
+
+  call hipCheck(hipHostMalloc(work, lwork))
+  call hipCheck(hipHostMalloc(iwork, liwork))
+
+  lwork_d = 2*64*64 + 66*N
+  call hipCheck(hipMalloc(work_d, lwork_d))
+  ts = wallclock()
+  call dsygvdx_gpu_h(N, A2_d, lda, B2_d, lda, Z2_d, lda, il, iu, w2_d, work_d, lwork_d, &
+                     work, lwork, iwork, liwork, Z2, lda, w2, istat)
+  te = wallclock()
+  print *, "Time for CUSTOM dsygvd/x = ", (te - ts)*1000.0
+  if (istat /= 0) write (*, *) 'dsygvdx_gpu failed'
 end program

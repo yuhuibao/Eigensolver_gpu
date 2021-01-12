@@ -6,7 +6,7 @@
 # This file is meant to be included by other Makefiles.  The includer must 
 # set HIPFORT_HOME to the build or install location of HIPFORT.  For example:
 #
-HIPFORT_HOME = /home/yuhuibao/dev/src/github.com/hipfort
+HIPFORT_HOME = /opt/rocm/hipfort
 #    include $(HIPFORT_HOME)/bin/Makefile.hipfort
 #  
 # If the caller does not set HIPFORT_ARCHGPU, this Makefile will call 
@@ -26,8 +26,8 @@ HIPFORT_COMPILER ?= gfortran
 DEVICE_LIB_PATH  ?= $(ROCM)/lib
 HIP_CLANG_PATH   ?= $(ROCM)/llvm/bin
 
-MOD_DIR  = /usr/local/include/$(ARCH)
-LIB_DIR  = /usr/local/lib
+MOD_DIR  = $(HIPFORT_HOME)/include/$(ARCH)
+LIB_DIR  = $(HIPFORT_HOME)/lib
 
 GPU = $(strip $(subst ., ,$(suffix $(subst -,.,$(HIPFORT_ARCHGPU)))))
 ifeq (nvptx,$(findstring nvptx,$(HIPFORT_ARCHGPU)))
