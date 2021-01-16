@@ -287,6 +287,7 @@ contains
     subroutine launch_dsymv_gpu_m(grid,block,sharedMem,stream,n, lda, a, x, y)
         use iso_c_binding
         use hipfort
+        use dsymv_gpu_kernels
         implicit none
         type(dim3),intent(IN) :: grid
         type(dim3),intent(IN) :: block
@@ -318,6 +319,7 @@ contains
     subroutine launch_dsyr2_mv_dlarfg_kernel_m(grid,block,sharedMem,stream,n,m,ldv,ldw,ldw2,v,w,w2,x,e,tau,finished)
         use iso_c_binding
         use hipfort
+        use dsytrd_gpu_kernels
         implicit none
         type(dim3),intent(IN) :: grid
         type(dim3),intent(IN) :: block
