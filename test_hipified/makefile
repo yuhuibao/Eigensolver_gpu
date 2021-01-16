@@ -1,7 +1,7 @@
 all: test_dsygvdx
 
 include ../Makefile.hipfort
-LINKOPTS += ../lib_eigsolve/lib_eigsolve.a -lhipblas -L$(ROCM)/hipblas/lib -lrocsolver -L$(ROCM)/rocsolver/lib -llapack -lblas -lamdhip64
+LINKOPTS += ../lib_eigsolve/lib_eigsolve.a -lhipblas -L$(ROCM)/hipblas/lib  -llapack -lblas -lrocblas -L/opt/rocm/rocblas/lib -lrocsolver -L$(ROCM)/rocsolver/lib -lamdhip64
 MODULES_DIR = ../lib_eigsolve
 
 test_dsygvdx: test_dsygvdx.hipified.o wallclock.o utils.o
