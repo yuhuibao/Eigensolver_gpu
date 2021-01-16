@@ -107,17 +107,17 @@ program main
     call hipCheck(hipMalloc(B2_d, lda,N))
     call hipCheck(hipMemcpy(B2_d, Bref, lda*N, hipMemcpyHostToDevice))
 
-    call hipCheck(hipHostMalloc(Z1, [lda,N]))
-    call hipCheck(hipHostMalloc(Z2, lda,N))
+    call hipCheck(hipHostMalloc(Z1, lda,N,0))
+    call hipCheck(hipHostMalloc(Z2, lda,N,0))
     
     call hipCheck(hipMalloc(Z2_d, lda,N))
-    call hipCheck(hipMemset(Z2_d, 0, lda*N))
+    call hipCheck(hipMemset(c_loc(Z2_d), 0, lda*N*8_8))
 
-    call hipCheck(hipHostMalloc(w1, N))
-    call hipCheck(hipHostMalloc(w2, N))
+    call hipCheck(hipHostMalloc(w1, N,0))
+    call hipCheck(hipHostMalloc(w2, N,0))
     
     call hipCheck(hipMalloc(w2_d, N))
-    call hipCheck(hipMemset(w2_d, 0, N))
+    call hipCheck(hipMemset(c_loc(w2_d), 0, N*8_8))
 
     ! Initialize solvers
   call init_eigsolve_gpu()
@@ -128,8 +128,8 @@ program main
   print*, "CPU_____________________"
   lwork = 1 + 6*N + 2*N*N
   liwork = 3 + 5*N
-  call hipCheck(hipHostMalloc(work, lwork))
-  call hipCheck(hipHostMalloc(iwork, liwork))
+  call hipCheck(hipHostMalloc(work, lwork,0))
+  call hipCheck(hipHostMalloc(iwork, liwork,0))
   call dsygvd(1, 'V', 'U', N, A1, lda, B1, lda, w1, work, -1, iwork, -1, istat)
   if (istat /= 0) write(*,*) 'CPU dsygvd worksize failed'
   lwork = work(1);; liwork = iwork(1)
@@ -137,8 +137,8 @@ program main
   !call print_vector(iwork,liwork)
   call hipCheck(hipHostFree(work))
   call hipCheck(hipHostFree(iwork))
-  call hipCheck(hipHostMalloc(work, lwork))
-  call hipCheck(hipHostMalloc(iwork, liwork))
+  call hipCheck(hipHostMalloc(work, lwork,0))
+  call hipCheck(hipHostMalloc(iwork, liwork,0))
 
   A1 = Aref
   B1 = Bref
@@ -149,9 +149,7 @@ program main
   A1 = Aref
   B1 = Bref
   ts = wallclock()
-  call nvtxStartRange("CPU DSYGVD",1)
   call dsygvd(1, 'V', 'U', N, A1, lda, B1, lda, w1, work, lwork, iwork, liwork, istat)
-  call nvtxEndRange
   te = wallclock()
   if (istat /= 0) write(*,*) 'CPU dsygvd failed. istat = ', istat
 
@@ -168,8 +166,8 @@ program main
   call hipCheck(hipHostFree(work))
   call hipCheck(hipHostFree(iwork))
 
-  call hipCheck(hipHostMalloc(work, lwork))
-  call hipCheck(hipHostMalloc(iwork, liwork))
+  call hipCheck(hipHostMalloc(work, lwork,0))
+  call hipCheck(hipHostMalloc(iwork, liwork,0))
 
   lwork_d = 2*64*64 + 66*N
   call hipCheck(hipMalloc(work_d, lwork_d))
