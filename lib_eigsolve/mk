@@ -1,8 +1,8 @@
 APP=fort_gst
 
-CPPOBJS = dsygst_gpu_kernels.o dsytd2_gpu_kernels.o dsymv_gpu_kernels.o dsyevd_gpu_kernels.o dsygvdx_gpu_kernels.o dsytrd_gpu_kernels.o ext.o
-FOBJS = dsytrd_gpu.F90.hipified.o dsyevd_gpu.F90.hipified.o dsygvdx_gpu.F90.hipified.o dsygst_gpu.F90.hipified.o 
-INTFOJBS = dsytrd_gpu.kernels.o dsyevd_gpu.kernels.o dsygvdx_gpu.kernels.o dsygst_gpu_kernels.o iso_c_binding_ext.o
+CPPOBJS = dsygst_gpu_kernels.o dsytd2_gpu_kernels.o dsymv_gpu_kernels.o dsyevd_gpu_kernels.o dsygvdx_gpu_kernels.o dsytrd_gpu_kernels.o
+FOBJS = dsygvdx_gpu.F90.hipified.o dsytrd_gpu.F90.hipified.o dsyevd_gpu.F90.hipified.o  dsygst_gpu.F90.hipified.o 
+INTFOJBS = dsytrd_gpu.kernels.o dsyevd_gpu.kernels.o dsygvdx_gpu.kernels.o dsygst_gpu_kernels.o
 
 MODULES_DIR=/opt/rocm/hipfort/include/amdgcn
 MODULES_DIR1=../../gpufort/modules/rocm-utils
@@ -41,14 +41,9 @@ dsygst_gpu_kernels.o: dsygst_gpu.kernels.hip.cpp
 dsygst_gpu.F90.hipified.o: dsygst_gpu.kernels.f08 dsygst_gpu.F90.hipified.F90 eigsolve_vars.o
 	$(FC) -I$(MODULES_DIR) -I$(MODULES_DIR1) -c dsygst_gpu.kernels.f08 dsygst_gpu.F90.hipified.F90
 
-ext.o: iso_c_binding_ext.c
-	$(CXX) -c $^ -o $@
 
-iso_c_binding_ext.o: iso_c_binding_ext.f03
-	$(FC) -c $^
-
-lib_eigsolve.a: eigsolve_vars.o $(FOBJS) $(CPPOBJS) $(INTFOJBS) 
-	ar -cr lib_eigsolve.a eigsolve_vars.o $(FOBJS) $(CPPOBJS) $(INTFOJBS)
+lib_eigsolve.a: eigsolve_vars.o $(FOBJS) $(CPPOBJS)
+	ar -cr lib_eigsolve.a  $(FOBJS) $(CPPOBJS) $(INTFOJBS) eigsolve_vars.o
 
 clean:
-	rm -f *.o *.mod 
+	rm -f *.o *.mod *.a
