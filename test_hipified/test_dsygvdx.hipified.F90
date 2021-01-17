@@ -62,10 +62,11 @@ program main
     integer                                         :: n1, n2, m1, m2, lda1, lda2
     integer                                         :: lwork_d, lwork, lrwork, liwork, il, iu,lwork1,liwork1
     character(len=20)                               :: arg
+    character(:),allocatable                        :: file1,file2
     real(8)                                         :: ts, te, wallclock
     real(8), dimension(:, :), allocatable, target            :: A1, A2, Aref
     real(8), dimension(:, :), allocatable, target            :: B1, B2, Bref
-    real(8),pointer, dimension(:,:)    :: Z1, Z2
+    real(8),pointer, dimension(:,:)    :: Z2
     
     real(8),pointer, dimension(:,:)    :: A2_d, B2_d, Z2_d
     
@@ -92,9 +93,43 @@ program main
         call create_random_symmetric_pd(Bref, N)
 
     
+    elseif (i ==2) then
+            print*, "Reading  matrices from files ..."
+            print*, "Unformatted files with n,m,lda "
+            print*, "A(lda,n) B(lda,n)"
+            call get_command_argument(1, arg)
+            file1=trim(arg)
+            call get_command_argument(2, arg)
+            file2=trim(arg)
+            open(UNIT=13, FILE=file1, ACTION="read")
+            open(UNIT=14, FILE=file2, ACTION="read")
+            read(13,*) n1,m1,lda1
+            read(14,*) n2,m2,lda2
+            print *,n1,m1,lda1,n2,m2,lda2
+            if( n1/=n2 .or. m1/=m2 .or. lda1 /= lda2) then
+              print *,"expecting A and B to have same N,M,LDA"
+              call exit
+            end if
+            N=n1
+            M=m1
+            LDA=lda1
+            print *,"n,m,lda from files:",n,m,lda
+            allocate(Aref(n,m))
+            allocate(Bref(n,m))
+            read(13,*)Aref(1:n,1:n)
+            read(14,*)Bref(1:n,1:n)
+            close(13)
+            close(14)
+            call print_matrix(Aref)
+            call print_matrix(Bref)
+        
+          else
+            print*, "Usage:\n\t ./main [N]"
+            call exit
+          endif
 
     print *, "Running with N = ", N
-    endif
+    
    ! Allocate/Copy matrices to device
     allocate (A1, source=Aref)
     allocate (A2, source=Aref)
@@ -107,9 +142,8 @@ program main
     call hipCheck(hipMalloc(B2_d, lda,N))
     call hipCheck(hipMemcpy(B2_d, Bref, lda*N, hipMemcpyHostToDevice))
 
-    call hipCheck(hipHostMalloc(Z1, lda,N,0))
     call hipCheck(hipHostMalloc(Z2, lda,N,0))
-    
+
     call hipCheck(hipMalloc(Z2_d, lda,N))
     call hipCheck(hipMemset(c_loc(Z2_d), 0, lda*N*8_8))
 
@@ -159,7 +193,7 @@ program main
 ! CASE 4: using CUSTOM ____________________________________________________________________
   print*
   print*, "CUSTOM_____________________"
-  iu = M
+  iu = N
   il = 1
   lwork = 1 + 6*N + 2*N*N
   liwork = 3 + 5*N
@@ -177,4 +211,7 @@ program main
   te = wallclock()
   print *, "Time for CUSTOM dsygvd/x = ", (te - ts)*1000.0
   if (istat /= 0) write (*, *) 'dsygvdx_gpu failed'
+
+  call print_matrix(A1)
+  call print_matrix(Z2)
 end program
