@@ -85,8 +85,10 @@ __global__ void krnl_959801_0(double *z,
 
   unsigned int j = 1 + threadIdx.y + blockIdx.y * blockDim.y;
   unsigned int i = 1 + threadIdx.x + blockIdx.x * blockDim.x;
+  //printf("%d %d %d", i, j,n);
   if ((j <= n) && (i <= n)) {
     if ((i > j)) {
+      //printf("%f\n",a[_idx_a(i,j)]);
       z[_idx_z(i, j)] = a[_idx_a(i, j)];
     }
   }
@@ -133,6 +135,9 @@ extern "C" void launch_krnl_959801_0_auto(const int sharedMem,
 
   dim3 grid(krnl_959801_0_gridX, krnl_959801_0_gridY);
   dim3 block(krnl_959801_0_blockX, krnl_959801_0_blockY);
+  //printf("I am a message %d",n);
   hipLaunchKernelGGL((krnl_959801_0), grid, block, sharedMem, stream, z, z_n1, z_n2, z_lb1, z_lb2, n, a, a_n1, a_n2, a_lb1, a_lb2);
+  // hipDeviceSynchronize();
+  // exit(0);
 }
 // END krnl_959801_0

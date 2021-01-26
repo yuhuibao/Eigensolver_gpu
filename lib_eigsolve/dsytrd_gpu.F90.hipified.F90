@@ -21,8 +21,6 @@
 ! DEALINGS IN THE SOFTWARE.
 !
 module dsytd2_gpu_kernels
-    use hipfort
-    implicit none
 
     interface
 
@@ -51,7 +49,7 @@ module dsytd2_gpu_kernels
             implicit none
             type(dim3), intent(IN) :: grid
             type(dim3), intent(IN) :: block
-            integer(c_int), intent(IN) :: sharedMem
+            integer(c_int), value, intent(IN) :: sharedMem
             type(c_ptr), value, intent(IN) :: stream
             INTEGER, value :: lda
             type(c_ptr), value :: a
@@ -75,9 +73,6 @@ module dsytd2_gpu_kernels
 
 end module dsytd2_gpu_kernels
 module dsymv_gpu_kernels
-    use hipfort
-    implicit none
-
     interface
 
         subroutine launch_dsymv_gpu(grid, &
@@ -100,7 +95,7 @@ module dsymv_gpu_kernels
             implicit none
             type(dim3), intent(IN) :: grid
             type(dim3), intent(IN) :: block
-            integer(c_int), intent(IN) :: sharedMem
+            integer(c_int), value, intent(IN) :: sharedMem
             type(c_ptr), value, intent(IN) :: stream
             INTEGER, value :: n
             type(c_ptr), value :: a
@@ -122,7 +117,6 @@ module dsytrd_gpu
     use dsytrd_gpu_kernels
     use hipfort
     use iso_c_binding
-    use iso_c_binding_ext
     use hipfort_hipblas
 
 contains
@@ -151,13 +145,13 @@ contains
         endif
 
         if (lwork < (nb + 2)*N .and. N > nb) then
-            write (*, *), "Provided work array must be sized (nb+2)*N or greater!"
+            write (*, *) "Provided work array must be sized (nb+2)*N or greater!"
             return
         endif
 
         ldwork = N
 
-        istat = hipblasSetStream(hipblasHandle, stream1)
+        call hipblasCheck(hipblasSetStream(hipblasHandle, stream1))
 
         kk = N - ((N - 32)/nb)*nb
         k = N + 1
@@ -166,8 +160,8 @@ contains
             call dlatrd_gpu(uplo, i + nb - 1, nb, A, lda, e, tau, work, ldwork)
 
             ! Update trailing submatrix
-            istat = hipblasdsyr2k_m(hipblasHandle, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb, -one, A(1, i), lda, &
-                work, ldwork, one, A, lda)
+          call hipblasCheck(hipblasdsyr2k_m(hipblasHandle, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb, -one, A(1, i), lda, &
+                                              work, ldwork, one, A, lda))
 
             k = k - nb
 
@@ -182,16 +176,17 @@ contains
             call dlatrd_gpu(uplo, i + nb - 1, nb, A, lda, e, tau, work, ldwork)
 
             ! Update trailing submatrix
-            istat = hipblasdsyr2k_m(hipblasHandle, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb, -one, &
-                                  A(1, i), lda, work, ldwork, one, A, lda)
+            call hipblasCheck(hipblasdsyr2k_m(hipblasHandle, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb, -one, &
+                                              A(1, i), lda, work, ldwork, one, A, lda))
 
         endif
 
         ! Final block
         threads = dim3(32, 32, 1)
         grid = dim3(1, 1, 1)
- CALL launch_dsytd2_gpu(grid, threads, 0, c_null_ptr, lda, c_loc(A), lda, N, 1, 1, c_loc(tau), N - 1, 1, c_loc(d), N, 1, c_loc(e), &
-                               N - 1, 1, min(32, N))
+      CALL launch_dsytd2_gpu(grid, threads, 32*32*8 + 16, c_null_ptr, lda, c_loc(A), lda, N, 1, 1, c_loc(tau), N - 1, 1, c_loc(d), &
+                               N, 1, c_loc(e), N - 1, 1, min(32, N))
+
         ! Copy superdiagonal back into A, store diagonal in d
         ! extracted to HIP C++ file
         ! TODO(gpufort) fix arguments
@@ -209,10 +204,10 @@ contains
         integer                                    :: N, nb, lda, ldw, istat
         integer                                    :: i, j, k, iw
         type(dim3)                                    :: threads
-        real(8), target,dimension(1:lda, 1:N)     :: A
-        real(8), target,dimension(1:ldw, 1:nb)    :: W
-        real(8), target,dimension(N - 1)            :: tau
-        real(8), target,dimension(N - 1)            :: e
+        real(8), target, dimension(1:lda, 1:N)     :: A
+        real(8), target, dimension(1:ldw, 1:nb)    :: W
+        real(8), target, dimension(N - 1)            :: tau
+        real(8), target, dimension(N - 1)            :: e
 
         real(8), parameter                         :: one = 1.0d0, zero = 0.0d0, half = 0.5d0
 
@@ -232,171 +227,169 @@ contains
         if (N > 1) then
             iw = nb
             ! Generate elementary reflector H(i) to annihilate A(1:i-2, i)
-            CALL launch_dlarfg_kernel_m(dim3(1, 1, 1), threads, 0, c_null_ptr, N - 1, tau(N-1), e(N-1), A(1, N))
+            CALL launch_dlarfg_kernel_m(dim3(1, 1, 1), threads, 0, c_null_ptr, N - 1, tau(N - 1), e(N - 1), A(1, N))
             ! extracted to HIP C++ file
             ! TODO(gpufort) fix arguments
             CALL launch_krnl_37a79c_1_auto(0, c_null_ptr, c_loc(w), ldw, nb, 1, 1, n, iw)
 
             blocks2D = dim3(10, ceiling(real(N - 1)/32), 1) !JR TODO: What is optimal number of columns for our problem size?
-            CALL launch_dsymv_gpu_m(blocks2D, threads2D, 0, c_null_ptr, N - 1, lda, A, A(1,N), W(1,iw))
+            CALL launch_dsymv_gpu_m(blocks2D, threads2D, 0, c_null_ptr, N - 1, lda, A, A(1, N), W(1, iw))
 
-            CALL launch_finish_W_col_kernel_m(dim3(1, 1, 1), threads, 0, c_null_ptr, N - 1, tau(N-1),A(1, N), W(1, iw))
+            CALL launch_finish_W_col_kernel_m(dim3(1, 1, 1), threads, 0, c_null_ptr, N - 1, tau(N - 1), A(1, N), W(1, iw))
         endif
 
         do i = N - 1, N - nb + 1, -1
             iw = i - N + nb
 
             blocks2D = dim3(ceiling(real(max(i, N - i))/32), ceiling(real(N - i)/8), 1)
-           CALL launch_dsyr2_mv_dlarfg_kernel_m(blocks2D, threads2D, 0, c_null_ptr, i, N - i, lda, ldw, ldw, A(1, i+1), &
-               W(1, iw+1), A(1, i), W(1, iw),e(i-1),tau(i-1),finished)
+            CALL launch_dsyr2_mv_dlarfg_kernel_m(blocks2D, threads2D, 0, c_null_ptr, i, N - i, lda, ldw, ldw, A(1, i + 1), &
+                                                 W(1, iw + 1), A(1, i), W(1, iw), e(i - 1), tau(i - 1), finished)
 
             if (i > 1) then
                 ! Generate elementary reflector H(i) to annihilate A(1:i-2, i)
 
                 blocks2D = dim3(10, ceiling(real(i - 1)/32), 1) !JR TODO: What is optimal number of columns for our problem size?
-                CALL launch_dsymv_gpu_m(blocks2D, threads2D, 0, c_null_ptr, i - 1, lda, A, A(1,i), W(1,iw))
-
+                CALL launch_dsymv_gpu_m(blocks2D, threads2D, 0, c_null_ptr, i - 1, lda, A, A(1, i), W(1, iw))
 
                 blocks2D = dim3(ceiling(real(i - 1)/32), ceiling(real(2*(n - i))/8), 1)
-                CALL launch_stacked_dgemv_T_m(blocks2D, threads2D, 0, c_null_ptr, n - i, i - 1, lda, ldw, A(1, i+1), W(1, iw+1),&
-                    A(1,i), W(i+1, iw), W(i+1, iw+1))
-                CALL launch_stacked_dgemv_N_finish_W_m(blocks2D, threads2D, 0, c_null_ptr, i - 1, n - i, lda, ldw, A(1, i+1), &
-                    W(1, iw+1),W(i+1,iw), W(i+1, iw+1), W(1, iw), tau(i-1), A(1, i), finished)
+              CALL launch_stacked_dgemv_T_m(blocks2D, threads2D, 0, c_null_ptr, n - i, i - 1, lda, ldw, A(1, i + 1), W(1, iw + 1), &
+                                              A(1, i), W(i + 1, iw), W(i + 1, iw + 1))
+                CALL launch_stacked_dgemv_N_finish_W_m(blocks2D, threads2D, 0, c_null_ptr, i - 1, n - i, lda, ldw, A(1, i + 1), &
+                                              W(1, iw + 1), W(i + 1, iw), W(i + 1, iw + 1), W(1, iw), tau(i - 1), A(1, i), finished)
 
             end if
         end do
     end subroutine dlatrd_gpu
 
-
-    subroutine launch_dlarfg_kernel_m(grid,block,sharedMem,stream,n,tau,e,x)
+    subroutine launch_dlarfg_kernel_m(grid, block, sharedMem, stream, n, tau, e, x)
         use iso_c_binding
         use hipfort
         implicit none
-        type(dim3),intent(IN) :: grid
-        type(dim3),intent(IN) :: block
-        integer(c_int),intent(IN) :: sharedMem
-        type(c_ptr),value,intent(IN) :: stream
-        INTEGER,value :: n
-        real(8),target,dimension(1) :: tau
-        real(8),target,dimension(1) :: e
-        real(8),target,dimension(n) :: x
+        type(dim3), intent(IN) :: grid
+        type(dim3), intent(IN) :: block
+        integer(c_int), intent(IN) :: sharedMem
+        type(c_ptr), value, intent(IN) :: stream
+        INTEGER, value :: n
+        real(8), target, dimension(1) :: tau
+        real(8), target, dimension(1) :: e
+        real(8), target, dimension(n) :: x
 
-        call launch_dlarfg_kernel(grid,block,sharedMem,stream,n,c_loc(tau),c_loc(e),c_loc(x),n, 1)
+        call launch_dlarfg_kernel(grid, block, sharedMem, stream, n, c_loc(tau), c_loc(e), c_loc(x), n, 1)
     end subroutine launch_dlarfg_kernel_m
 
-    subroutine launch_dsymv_gpu_m(grid,block,sharedMem,stream,n, lda, a, x, y)
+    subroutine launch_dsymv_gpu_m(grid, block, sharedMem, stream, n, lda, a, x, y)
         use iso_c_binding
         use hipfort
         use dsymv_gpu_kernels
         implicit none
-        type(dim3),intent(IN) :: grid
-        type(dim3),intent(IN) :: block
-        integer(c_int),intent(IN) :: sharedMem
-        type(c_ptr),value,intent(IN) :: stream
-        INTEGER,value :: n, lda
-        real(8), target,dimension(lda, N), intent(in)    :: a
-        real(8), target,dimension(N), intent(in)         :: x
-        real(8), target,dimension(N)                     :: y 
-        
-        call launch_dsymv_gpu(grid,block,sharedMem,stream,n,c_loc(a),lda, 1, 1, c_loc(x), n, 1, c_loc(y), n, 1) 
-    end subroutine launch_dsymv_gpu_m 
+        type(dim3), intent(IN) :: grid
+        type(dim3), intent(IN) :: block
+        integer(c_int), intent(IN) :: sharedMem
+        type(c_ptr), value, intent(IN) :: stream
+        INTEGER, value :: n, lda
+        real(8), target, dimension(lda, N), intent(in)    :: a
+        real(8), target, dimension(N), intent(in)         :: x
+        real(8), target, dimension(N)                     :: y
 
-    subroutine launch_finish_W_col_kernel_m(grid,block,sharedMem,stream,n,tau,x,y)
+        call launch_dsymv_gpu(grid, block, sharedMem, stream, n, c_loc(a), lda, 1, 1, c_loc(x), n, 1, c_loc(y), n, 1)
+    end subroutine launch_dsymv_gpu_m
+
+    subroutine launch_finish_W_col_kernel_m(grid, block, sharedMem, stream, n, tau, x, y)
         use iso_c_binding
         use hipfort
         implicit none
-        type(dim3),intent(IN) :: grid
-        type(dim3),intent(IN) :: block
-        integer(c_int),intent(IN) :: sharedMem
-        type(c_ptr),value,intent(IN) :: stream
-        INTEGER,value :: n
-        real(8),target,dimension(1) :: tau
-        real(8),target, dimension(N),intent(in)    :: x
-        real(8),target, dimension(N)               :: y
+        type(dim3), intent(IN) :: grid
+        type(dim3), intent(IN) :: block
+        integer(c_int), intent(IN) :: sharedMem
+        type(c_ptr), value, intent(IN) :: stream
+        INTEGER, value :: n
+        real(8), target, dimension(1) :: tau
+        real(8), target, dimension(N), intent(in)    :: x
+        real(8), target, dimension(N)               :: y
 
-        call launch_finish_W_col_kernel(grid,block,sharedMem,stream,n,c_loc(tau),c_loc(x),n,1,c_loc(y),n,1)
-    end subroutine launch_finish_W_col_kernel_m 
-    subroutine launch_dsyr2_mv_dlarfg_kernel_m(grid,block,sharedMem,stream,n,m,ldv,ldw,ldw2,v,w,w2,x,e,tau,finished)
+        call launch_finish_W_col_kernel(grid, block, sharedMem, stream, n, c_loc(tau), c_loc(x), n, 1, c_loc(y), n, 1)
+    end subroutine launch_finish_W_col_kernel_m
+    subroutine launch_dsyr2_mv_dlarfg_kernel_m(grid, block, sharedMem, stream, n, m, ldv, ldw, ldw2, v, w, w2, x, e, tau, finished)
         use iso_c_binding
         use hipfort
         use dsytrd_gpu_kernels
         implicit none
-        type(dim3),intent(IN) :: grid
-        type(dim3),intent(IN) :: block
-        integer(c_int),intent(IN) :: sharedMem
-        type(c_ptr),value,intent(IN) :: stream
-        INTEGER,value :: n,m,ldv,ldw,ldw2
-        real(8), target,dimension(1:ldv, 1:M), intent(in)  :: V
-        real(8), target,dimension(1:ldw, 1:M), intent(in)  :: W
-        real(8), target,dimension(1:ldw2, 2)              :: W2
-        real(8), target,dimension(1:N)                   :: x
-        real(8), target,dimension(1)               :: tau
-        real(8), target,dimension(1)               :: e
-        integer, target,dimension(1)               :: finished
+        type(dim3), intent(IN) :: grid
+        type(dim3), intent(IN) :: block
+        integer(c_int), intent(IN) :: sharedMem
+        type(c_ptr), value, intent(IN) :: stream
+        INTEGER, value :: n, m, ldv, ldw, ldw2
+        real(8), target, dimension(1:ldv, 1:M), intent(in)  :: V
+        real(8), target, dimension(1:ldw, 1:M), intent(in)  :: W
+        real(8), target, dimension(1:ldw2, 2)              :: W2
+        real(8), target, dimension(1:N)                   :: x
+        real(8), target, dimension(1)               :: tau
+        real(8), target, dimension(1)               :: e
+        integer, target, dimension(1)               :: finished
 
         call launch_dsyr2_mv_dlarfg_kernel(grid,block,sharedMem,stream,n,m,c_loc(v),ldv,1,1,c_loc(w),ldw,1,1,c_loc(w2),ldw2,1,1,&
-            c_loc(x),n,1,c_loc(e),c_loc(tau),c_loc(finished)) 
-    end subroutine launch_dsyr2_mv_dlarfg_kernel_m 
+                                           c_loc(x), n, 1, c_loc(e), c_loc(tau), c_loc(finished))
+    end subroutine launch_dsyr2_mv_dlarfg_kernel_m
 
-    subroutine launch_stacked_dgemv_T_m(grid,block,sharedMem,stream,m,n,ldv,ldw,v,w,x,z1,z2)
+    subroutine launch_stacked_dgemv_T_m(grid, block, sharedMem, stream, m, n, ldv, ldw, v, w, x, z1, z2)
         use iso_c_binding
         use hipfort
         implicit none
-        type(dim3),intent(IN) :: grid
-        type(dim3),intent(IN) :: block
-        integer(c_int),intent(IN) :: sharedMem
-        type(c_ptr),value,intent(IN) :: stream
-        INTEGER,value :: n,m,ldv,ldw
-        real(8), target,dimension(ldv, M), intent(in)  :: V
-        real(8), target,dimension(ldw, M), intent(in)  :: W
-        real(8), target,dimension(N), intent(in)       :: x
-        real(8), target,dimension(M)                   :: z1, z2
+        type(dim3), intent(IN) :: grid
+        type(dim3), intent(IN) :: block
+        integer(c_int), intent(IN) :: sharedMem
+        type(c_ptr), value, intent(IN) :: stream
+        INTEGER, value :: n, m, ldv, ldw
+        real(8), target, dimension(ldv, M), intent(in)  :: V
+        real(8), target, dimension(ldw, M), intent(in)  :: W
+        real(8), target, dimension(N), intent(in)       :: x
+        real(8), target, dimension(M)                   :: z1, z2
 
         call launch_stacked_dgemv_T(grid,block,sharedMem,stream,m,n,c_loc(v),ldv,1,1,c_loc(w),ldw,1,1,c_loc(x),n,1,c_loc(z1),m,&
-            1,c_loc(z2),m,1)
+                                    1, c_loc(z2), m, 1)
     end subroutine launch_stacked_dgemv_T_m
 
-    subroutine launch_stacked_dgemv_N_finish_W_m(grid,block,sharedMem,stream,m,n,ldv,ldw,v,w,z1,z2,y,tau,x,finished)
+    subroutine launch_stacked_dgemv_N_finish_W_m(grid, block, sharedMem, stream, m, n, ldv, ldw, v, w, z1, z2, y, tau, x, finished)
         use iso_c_binding
         use hipfort
         implicit none
-        type(dim3),intent(IN) :: grid
-        type(dim3),intent(IN) :: block
-        integer(c_int),intent(IN) :: sharedMem
-        type(c_ptr),value,intent(IN) :: stream
-        INTEGER,value :: n,m,ldv,ldw
-        real(8), target,dimension(ldv, M), intent(in)  :: V
-        real(8), target,dimension(ldw, M), intent(in)  :: W
-        real(8), target,dimension(N),intent(in)        :: z1, z2
-        real(8), target,dimension(M)                   :: y
-        real(8), target,dimension(M), intent(in)       :: x
-        real(8),target,dimension(1) :: tau
-        integer, target,dimension(1)               :: finished 
+        type(dim3), intent(IN) :: grid
+        type(dim3), intent(IN) :: block
+        integer(c_int), intent(IN) :: sharedMem
+        type(c_ptr), value, intent(IN) :: stream
+        INTEGER, value :: n, m, ldv, ldw
+        real(8), target, dimension(ldv, M), intent(in)  :: V
+        real(8), target, dimension(ldw, M), intent(in)  :: W
+        real(8), target, dimension(N), intent(in)        :: z1, z2
+        real(8), target, dimension(M)                   :: y
+        real(8), target, dimension(M), intent(in)       :: x
+        real(8), target, dimension(1) :: tau
+        integer, target, dimension(1)               :: finished
 
         call launch_stacked_dgemv_N_finish_W(grid,block,sharedMem,stream,m,n,c_loc(v),ldv,1,1,c_loc(w),ldw,1,1,c_loc(z1),n,1,&
-            c_loc(z2),n,1,c_loc(y),m,1,c_loc(tau),c_loc(x),m,1,c_loc(finished)) 
+                                             c_loc(z2), n, 1, c_loc(y), m, 1, c_loc(tau), c_loc(x), m, 1, c_loc(finished))
     end subroutine launch_stacked_dgemv_N_finish_W_m
 
-    function hipblasdsyr2k_m(handle,uplo,transA,n,k,alpha,A,lda,B,ldb,beta,C,ldc)
-      use iso_c_binding
-      use hipfort_hipblas_enums
-      use hipfort_hipblas
-      implicit none
-      integer(kind(HIPBLAS_STATUS_SUCCESS)) :: hipblasDsyr2k_m
-      type(c_ptr),value :: handle
-      integer(kind(HIPBLAS_FILL_MODE_UPPER)),value :: uplo
-      integer(kind(HIPBLAS_OP_N)),value :: transA
-      integer(c_int),value :: n
-      integer(c_int),value :: k
-      real(c_double) :: alpha
-      real(8), target, dimension(n,k) :: A
-      integer(c_int),value :: lda
-      real(8), target, dimension(n,k) :: B
-      integer(c_int),value :: ldb
-      real(c_double) :: beta
-      real(8), target, dimension(n,n) :: C
-      integer(c_int),value :: ldc
+    function hipblasdsyr2k_m(handle, uplo, transA, n, k, alpha, A, lda, B, ldb, beta, C, ldc)
+        use iso_c_binding
+        use hipfort_hipblas_enums
+        use hipfort_hipblas
+        implicit none
+        integer(kind(HIPBLAS_STATUS_SUCCESS)) :: hipblasDsyr2k_m
+        type(c_ptr), value :: handle
+        integer(kind(HIPBLAS_FILL_MODE_UPPER)), value :: uplo
+        integer(kind(HIPBLAS_OP_N)), value :: transA
+        integer(c_int), value :: n
+        integer(c_int), value :: k
+        real(c_double) :: alpha
+        real(8), target, dimension(n, k) :: A
+        integer(c_int), value :: lda
+        real(8), target, dimension(n, k) :: B
+        integer(c_int), value :: ldb
+        real(c_double) :: beta
+        real(8), target, dimension(n, n) :: C
+        integer(c_int), value :: ldc
 
-      hipblasdsyr2k_m = hipblasdsyr2k(handle,uplo,transA,n,k,alpha,c_loc(A),lda, c_loc(B),ldb, beta,c_loc(C),ldc)
+        hipblasdsyr2k_m = hipblasdsyr2k(handle, uplo, transA, n, k, alpha, c_loc(A), lda, c_loc(B), ldb, beta, c_loc(C), ldc)
     end function hipblasdsyr2k_m
 end module dsytrd_gpu

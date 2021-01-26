@@ -26,7 +26,7 @@ module dsyevd_gpu_kernels
             implicit none
             type(dim3), intent(IN) :: grid
             type(dim3), intent(IN) :: block
-            integer(c_int), intent(IN) :: sharedMem
+            integer(c_int), value, intent(IN) :: sharedMem
             type(c_ptr), value, intent(IN) :: stream
             type(c_ptr), value :: z
             integer(c_int), value, intent(IN) :: z_n1
@@ -57,7 +57,7 @@ module dsyevd_gpu_kernels
             use iso_c_binding
             use hipfort
             implicit none
-            integer(c_int), intent(IN) :: sharedMem
+            integer(c_int), value, intent(IN) :: sharedMem
             type(c_ptr), value, intent(IN) :: stream
             type(c_ptr), value :: z
             integer(c_int), value, intent(IN) :: z_n1
@@ -93,7 +93,7 @@ module dsyevd_gpu_kernels
             implicit none
             type(dim3), intent(IN) :: grid
             type(dim3), intent(IN) :: block
-            integer(c_int), intent(IN) :: sharedMem
+            integer(c_int), value, intent(IN) :: sharedMem
             type(c_ptr), value, intent(IN) :: stream
             type(c_ptr), value :: w
             integer(c_int), value, intent(IN) :: w_n1
@@ -126,7 +126,7 @@ module dsyevd_gpu_kernels
             use iso_c_binding
             use hipfort
             implicit none
-            integer(c_int), intent(IN) :: sharedMem
+            integer(c_int), value, intent(IN) :: sharedMem
             type(c_ptr), value, intent(IN) :: stream
             type(c_ptr), value :: w
             integer(c_int), value, intent(IN) :: w_n1
@@ -163,7 +163,7 @@ module dsyevd_gpu_kernels
             implicit none
             type(dim3), intent(IN) :: grid
             type(dim3), intent(IN) :: block
-            integer(c_int), intent(IN) :: sharedMem
+            integer(c_int), value, intent(IN) :: sharedMem
             type(c_ptr), value, intent(IN) :: stream
             type(c_ptr), value :: w
             integer(c_int), value, intent(IN) :: w_n1
@@ -196,7 +196,7 @@ module dsyevd_gpu_kernels
             use iso_c_binding
             use hipfort
             implicit none
-            integer(c_int), intent(IN) :: sharedMem
+            integer(c_int), value, intent(IN) :: sharedMem
             type(c_ptr), value, intent(IN) :: stream
             type(c_ptr), value :: w
             integer(c_int), value, intent(IN) :: w_n1
@@ -231,7 +231,7 @@ module dsyevd_gpu_kernels
             implicit none
             type(dim3), intent(IN) :: grid
             type(dim3), intent(IN) :: block
-            integer(c_int), intent(IN) :: sharedMem
+            integer(c_int), value, intent(IN) :: sharedMem
             type(c_ptr), value, intent(IN) :: stream
             INTEGER, value :: n
             INTEGER, value :: ldt

@@ -57,14 +57,14 @@ contains
 
             istat = hipblasSetStream(hipblasHandle, stream1)
 
-            !call hipblasCheck(hipStreamWaitEvent(stream1, event2, 0))
+            call hipCheck(hipStreamWaitEvent(stream1, event2, 0))
             ! Populate subblock with complete symmetric entries (needed for DTRSM calls)
             ! extracted to HIP C++ file
             CALL launch_krnl_afb01f_0_auto(0, stream1, kb, c_loc(a), lda, N, 1, 1, k)
 
             ! Solve subblock problem (this version results in fully populated A subblock)
       istat = hipblasdtrsm(hipblasHandle, HIPBLAS_SIDE_LEFT, HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_T, HIPBLAS_DIAG_NON_UNIT, kb, kb, &
-                                 one, c_loc(B(k, k)), ldb, c_loc(A(k, k)), lda)
+                                 one, B(k, k), ldb, A(k, k), lda)
      istat = hipblasdtrsm(hipblasHandle, HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_UPPER, HIPBLAS_OP_N, HIPBLAS_DIAG_NON_UNIT, kb, kb, &
                                  one, B(k, k), ldb, A(k, k), lda)
 

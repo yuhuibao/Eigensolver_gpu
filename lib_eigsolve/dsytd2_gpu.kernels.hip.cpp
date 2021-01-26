@@ -252,9 +252,10 @@ __global__ void dsytd2_gpu(int lda,
 #undef _idx_a_s
 #define _idx_a_s(a, b) ((a - 1) + 32 * (b - 1))
 
-  __shared__ double* a_s; /* Fortran qualifiers: SHARED */
-  __shared__ double alpha;       /* Fortran qualifiers: SHARED */
-  __shared__ double taui;        /* Fortran qualifiers: SHARED */
+  extern __shared__ double s[]; 
+  double *a_s = s; /* Fortran qualifiers: SHARED */
+  double *params = &s[32*32];       /* Fortran qualifiers: SHARED */
+  double taui, alpha;
   double beta;
   double alphar;
   double xnorm;
@@ -269,6 +270,8 @@ __global__ void dsytd2_gpu(int lda,
   int i;
   int j;
   int ii;
+  alpha = params[0];
+  taui = params[1];
   tx = threadIdx.x + 1;
   ty = threadIdx.y + 1;
   // ! Linear id of the thread (tx,ty)
@@ -431,6 +434,7 @@ extern "C" void launch_dsytd2_gpu(dim3 *grid,
                                   const int e_n1,
                                   const int e_lb1,
                                   int n) {
+
   hipLaunchKernelGGL((dsytd2_gpu),
                      *grid,
                      *block,

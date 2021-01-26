@@ -25,11 +25,10 @@
 module eigsolve_vars
     use hipfort
     use iso_c_binding
-    use iso_c_binding_ext
     use hipfort_hipblas
     use hipfort_check
 
-    use hipfort_rocblas
+    use hipfort_rocsolver
     integer                        :: initialized = 0
     type(c_ptr)             :: hipblasHandle
     type(c_ptr)         :: rocsolverHandle
@@ -51,7 +50,7 @@ contains
             call hipCheck(hipDeviceSetSharedMemConfig(hipSharedMemBankSizeEightByte))
 
             call hipblasCheck(hipblasCreate(hipblasHandle))
-            call rocsolverCheck(rocblas_create_handle(rocsolverHandle))
+            call rocsolverCheck(rocsolver_create_handle(rocsolverHandle))
             call hipCheck(hipStreamCreate(stream1))
             call hipCheck(hipStreamCreate(stream2))
             call hipCheck(hipStreamCreate(stream3))

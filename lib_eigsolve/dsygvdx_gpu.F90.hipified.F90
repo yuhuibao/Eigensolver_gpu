@@ -22,13 +22,6 @@
 !
 
 module dsygvdx_gpu
-    use hipfort
-    use iso_c_binding
-    use iso_c_binding_ext
-    use hipfort_hipblas
-    use hipfort_rocsolver
-    use hipfort_check
-    implicit none
 
 contains
 
@@ -72,35 +65,43 @@ contains
     !     eigenvalues. This is a copy of the w array on the host.
     !   - info is an integer. info will equal zero if the function completes succesfully. Otherwise, there was an error.
     !
-    subroutine dsygvdx_gpu_h(N, A, lda, B, ldb, Z, ldz, il, iu, w, work, lwork, &
+    subroutine dsygvdx_gpu_h(N, A, A_h, lda, B, B_h, ldb, Z, ldz, il, iu, w, work, lwork, &
                              work_h, lwork_h, iwork_h, liwork_h, Z_h, ldz_h, w_h, info, cskip_host_copy)
         use dsygvdx_gpu_kernels
         use eigsolve_vars
 
         use dsygst_gpu
         use dsyevd_gpu
+        use utils
+        use hipfort
+        use iso_c_binding
+        use hipfort_rocsolver
+        use hipfort_check
         implicit none
         integer                                     :: N, m, lda, ldb, ldz, il, iu, ldz_h, info, nb
         integer                                     :: lwork_h, liwork_h, lwork, istat
-        real(8), target,dimension(1:lwork)         :: work
-        real(8), target,dimension(1:lwork_h)       :: work_h
-        integer, target,dimension(1:liwork_h)     :: iwork_h
+        real(8), target, dimension(1:lwork)         :: work
+        real(8), target, dimension(1:lwork_h)       :: work_h
+        integer, target, dimension(1:liwork_h)     :: iwork_h
 
         logical, optional                           :: cskip_host_copy
 
-        real(8), target,dimension(1:lda, 1:N) :: A
-        real(8), target,dimension(1:ldb, 1:N)      :: B
-        real(8), target,dimension(1:ldz, 1:N)      :: Z
-        real(8), target,dimension(1:ldz_h, 1:N)    :: Z_h
-        real(8), target,dimension(1:N)             :: w
-        real(8), target,dimension(1:N)             :: w_h
+        real(8), target, dimension(1:lda, 1:N) :: A
+        real(8), target, dimension(1:ldb, 1:N)      :: B
+        real(8), target, dimension(1:ldz, 1:N)      :: Z
+        real(8), target, dimension(1:ldz_h, 1:N)    :: Z_h
+        real(8), target, dimension(1:N)             :: w
+        real(8), target, dimension(1:N)             :: w_h
         real(c_double), parameter :: one = 1.d0
         integer :: i, j
         logical :: skip_host_copy
         integer, target :: v_devInfo(1)
+        real(8), target, dimension(1:lda, 1:N) :: A_h
+        real(8), target, dimension(1:ldb, 1:N)      :: B_h
 
         skip_host_copy = .FALSE.
         if (present(cskip_host_copy)) skip_host_copy = cskip_host_copy
+        istat = 1
 
         ! Check workspace sizes
         if (lwork < 2*64*64 + 66*N) then
@@ -124,26 +125,32 @@ contains
         ! Compute cholesky factorization of B
         ! 'L':only lower triangular part of B is processed, and replaced by lower triangular Cholesky factor L
         ! 'U':only upper triangular part of B is processed, and replaced by upper triangular Cholesky factor U
-        istat = rocsolver_dpotrf(rocsolverHandle, rocblas_fill_upper, N, c_loc(B), ldb, c_loc(devInfo_d))
+        istat = rocsolver_dpotrf(rocsolverHandle, rocblas_fill_upper, N, B, ldb, c_loc(devInfo_d))
         call hipCheck(hipMemcpy(v_devInfo, devInfo_d, 1, hipMemcpyDeviceToHost))
         istat = v_devInfo(1)
+        !print *, istat
         if (istat .ne. 0) then
             print *, "dsygvdx_gpu error: cusolverDnDpotrf failed!"
             info = -1
             return
         endif
-
+        call hipCheck(hipMemcpy(B_h, B, ldb*N, hipMemcpyDeviceToHost))
+        call print_matrix(B_h)
         ! Store lower triangular part of A in Z
         ! extracted to HIP C++ file
         ! TODO(gpufort) fix arguments
         CALL launch_krnl_959801_0_auto(0, stream1, c_loc(z), ldz, N, 1, 1, n, c_loc(a), lda, N, 1, 1)
+        ! call hipCheck(hipMemcpy(z_h, z, ldb*N, hipMemcpyDeviceToHost))
+        ! call print_matrix(z_h)
 
         ! Reduce to standard eigenproblem
         nb = 448
         call dsygst_gpu_h(1, 'U', N, A, lda, B, ldb, nb)
+        ! call hipCheck(hipMemcpy(A_h, A, lda*N, hipMemcpyDeviceToHost))
+        ! call print_matrix(A_h)
 
         ! Tridiagonalize and compute eigenvalues/vectors
-        call dsyevd_gpu_h('V', 'U', il, iu, N, A, lda, Z, ldz, w, work, lwork, &
+        call dsyevd_gpu_h('V', 'U', il, iu, N, A, A_h, lda, Z, ldz, w, work, lwork, &
                           work_h, lwork_h, iwork_h, liwork_h, Z_h, ldz_h, w_h, info)
 
         ! Triangle solve to get eigenvectors for original general eigenproblem

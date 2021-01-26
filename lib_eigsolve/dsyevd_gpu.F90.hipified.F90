@@ -25,7 +25,6 @@ module dsyevd_gpu
     use dsyevd_gpu_kernels
     use hipfort
     use iso_c_binding
-    use iso_c_binding_ext
     use hipfort_hipblas
 
     implicit none
@@ -33,28 +32,29 @@ module dsyevd_gpu
 contains
 
     ! Custom dsyevd routine
-    subroutine dsyevd_gpu_h(jobz, uplo, il, iu, N, A, lda, Z, ldz, w, work, lwork, &
+    subroutine dsyevd_gpu_h(jobz, uplo, il, iu, N, A, A_h, lda, Z, ldz, w, work, lwork, &
                             work_h, lwork_h, iwork_h, liwork_h, Z_h, ldz_h, w_h, info)
         use dsyevd_gpu_kernels
         use dsytrd_gpu
-
+        use utils
         use eigsolve_vars
         implicit none
         character                                   :: uplo, jobz
         integer                                     :: N, NZ, lda, lwork, istat, info
         integer                                     :: lwork_h, liwork_h, ldz_h
         integer                                     :: i, j, k, nb1, nb2, ib, mi, ldt, ldz, il, iu
-        real(8), target,dimension(1:lwork)         :: work
-        real(8), target,dimension(1:lwork_h)               :: work_h
-        integer, target,dimension(1:liwork_h)              :: iwork_h
+        real(8), target, dimension(1:lwork)         :: work
+        real(8), target, dimension(1:lwork_h)               :: work_h
+        integer, target, dimension(1:liwork_h)              :: iwork_h
 
-        real(8), target,dimension(1:lda, 1:N)      :: A
-        real(8), target,dimension(1:lda, 1:N)      :: Z
-        real(8), target,dimension(1:ldz_h, 1:N)    :: Z_h
-        real(8), target,dimension(1:N)           :: w
-        real(8), target,dimension(1:N)           :: w_h
+        real(8), target, dimension(1:lda, 1:N)      :: A
+        real(8), target, dimension(1:lda, 1:N)      :: Z
+        real(8), target, dimension(1:ldz_h, 1:N)    :: Z_h
+        real(8), target, dimension(1:N)           :: w
+        real(8), target, dimension(1:N)           :: w_h
 
         integer                                     :: inde, indtau, indwrk, llwork, llwork_h, indwk2, indwk3, llwrk2
+        real(8), target, dimension(1:lda, 1:N) :: A_h
         real(8), parameter                          :: one = 1.0_8
 
         type(dim3) :: blocks, threads
@@ -81,21 +81,15 @@ contains
 
         ! Call DSYTRD to reduce A to tridiagonal form
         call dsytrd_gpu_h('U', N, A, lda, w, work(inde), work(indtau), work(indwrk), llwork, nb1)
+        call hipCheck(hipMemcpy(A_h, A, lda*N, hipMemcpyDeviceToHost))
+        call print_matrix(A_h)
 
         ! Copy diagonal and superdiagonal to CPU
-#undef _idx_w
-#define _idx_w(a) ((a-(w_lb1)))
-#undef _idx_w_h
-#define _idx_w_h(a) ((a-(w_h_lb1)))
-#undef _idx_work
-#define _idx_work(a) ((a-(work_lb1)))
-#undef _idx_work_h
-#define _idx_work_h(a) ((a-(work_h_lb1)))
         !w_h(1:N) = w(1:N)
-        istat = hipMemcpy(w, w_h, N, hipMemcpyDeviceToHost)
+        call hipCheck(hipMemcpy(w, w_h, N, hipMemcpyDeviceToHost))
 
         !work_h(inde:inde+N-1) = work(inde:inde+N-1)
-        istat = hipMemcpy(work(inde:inde + N - 1), work_h(inde:inde + N - 1), N, hipMemcpyDeviceToHost)
+        call hipCheck(hipMemcpy(work(inde:inde + N - 1), work_h(inde:inde + N - 1), N, hipMemcpyDeviceToHost))
 
         ! Restore lower triangular of A (works if called from zhegvd only!)
         ! extracted to HIP C++ file
@@ -110,15 +104,16 @@ contains
             info = -1
             return
         endif
-
+        call print_matrix(Z_h)
+        call print_vector(w_h)
         ! Copy eigenvectors and eigenvalues to GPU
-        istat = hipMemcpy2D(Z, ldz, Z_h, ldz_h, N, NZ,hipMemcpyHostToDevice)
+        call hipCheck(hipMemcpy2D(Z, ldz, Z_h, ldz_h, N, NZ, hipMemcpyHostToDevice))
         !w(1:N) = w_h(1:N)
-        istat = hipMemcpy(w, w_h, N, hipMemcpyHostToDevice)
+        call hipCheck(hipMemcpy(w, w_h, N, hipMemcpyHostToDevice))
       !! Call DORMTR to rotate eigenvectors to obtain result for original A matrix
       !! JR Note: Eventual function calls from DORMTR called directly here with associated indexing changes
 
-        istat = hipEventRecord(event2, stream2)
+        call hipCheck(hipEventRecord(event2, stream2))
 
         k = N - 1
 
@@ -142,15 +137,15 @@ contains
         implicit none
         integer                               :: N, K, ldv, ldt, ldw
 
-        real(8), target,dimension(ldv, K)    :: V
-        real(8), target,dimension(K)         :: tau
-        real(8), target,dimension(ldt, K)    :: T
-        real(8), target,dimension(ldw, K)    :: W
+        real(8), target, dimension(ldv, K)    :: V
+        real(8), target, dimension(K)         :: tau
+        real(8), target, dimension(ldt, K)    :: T
+        real(8), target, dimension(ldw, K)    :: W
 
         integer                               :: i, j, istat1
         type(dim3)                            :: threads
 
-        istat1 = hipblasSetStream(hipblasHandle, stream1)
+        call hipblasCheck(hipblasSetStream(hipblasHandle, stream1))
         ! Prepare lower triangular part of block column for dsyrk call.
         ! Requires zeros in lower triangular portion and ones on diagonal.
         ! Store existing entries (excluding diagonal) in W
@@ -158,11 +153,11 @@ contains
         ! TODO(gpufort) fix arguments
         CALL launch_krnl_b1f342_1_auto(0, stream1, c_loc(w), ldw, K, 1, 1, n, c_loc(v), ldt, K, 1, 1, K)
 
-        istat1 = hipEventRecord(event1, stream1)
-        istat1 = hipStreamWaitEvent(stream1, event2, 0)
+        call hipCheck(hipEventRecord(event1, stream1))
+        call hipCheck(hipStreamWaitEvent(stream1, event2, 0))
 
         ! Form preliminary T matrix
-        istat1 = hipblasdsyrk(hipblasHandle, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_T, K, N, 1.0_8, V, ldv, 0.0_8, T, ldt)
+        call hipblasCheck(hipblasdsyrk(hipblasHandle, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_T, K, N, 1.0_8, V, ldv, 0.0_8, T, ldt))
 
         ! Finish forming T
         threads = dim3(64, 16, 1)
@@ -178,21 +173,21 @@ contains
         integer                               :: M, N, K, ldv, ldt, ldc, ldw, ldwork, istat
         integer                               :: i, j
 
-        real(8), target,dimension(ldv, K)    :: V
-        real(8), target,dimension(ldt, K)    :: T
-        real(8), target,dimension(ldw, K)    :: W
-        real(8), target,dimension(ldc, N)    :: C
-        real(8), target,dimension(ldwork, K) :: work
-        istat = hipblasSetStream(hipblasHandle, stream2)
-        istat = hipStreamWaitEvent(stream2, event1, 0)
-        istat = hipblasdgemm(hipblasHandle, HIPBLAS_OP_T, HIPBLAS_OP_N, N, K, M, 1.0d0, C, ldc, v, ldv, 0.0d0, work, ldwork)
-        istat = hipStreamSynchronize(stream1)
+        real(8), target, dimension(ldv, K)    :: V
+        real(8), target, dimension(ldt, K)    :: T
+        real(8), target, dimension(ldw, K)    :: W
+        real(8), target, dimension(ldc, N)    :: C
+        real(8), target, dimension(ldwork, K) :: work
+        call hipCheck(hipblasSetStream(hipblasHandle, stream2))
+        call hipCheck(hipStreamWaitEvent(stream2, event1, 0))
+     call hipblasCheck(hipblasdgemm(hipblasHandle, HIPBLAS_OP_T, HIPBLAS_OP_N, N, K, M, 1.0d0, C, ldc, v, ldv, 0.0d0, work, ldwork))
+        call hipCheck(hipStreamSynchronize(stream1))
 
-        istat = hipblasdtrmm(hipblasHandle, HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_T, HIPBLAS_DIAG_NON_UNIT, N, &
-                             K, 1.0d0, T, ldt, work, ldwork)
+call hipblasCheck(hipblasdtrmm(hipblasHandle, HIPBLAS_SIDE_RIGHT, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_T, HIPBLAS_DIAG_NON_UNIT, N, &
+                                       K, 1.0d0, T, ldt, work, ldwork))
 
-        istat = hipEventRecord(event2, stream2)
-        istat = hipblasdgemm(hipblasHandle, HIPBLAS_OP_N, HIPBLAS_OP_T, M, N, K, -1.0d0, V, ldv, work, ldwork, 1.0d0, c, ldc)
+        call hipCheck(hipEventRecord(event2, stream2))
+    call hipblasCheck(hipblasdgemm(hipblasHandle, HIPBLAS_OP_N, HIPBLAS_OP_T, M, N, K, -1.0d0, V, ldv, work, ldwork, 1.0d0, c, ldc))
 
         ! Restore clobbered section of block column (except diagonal)
         ! extracted to HIP C++ file

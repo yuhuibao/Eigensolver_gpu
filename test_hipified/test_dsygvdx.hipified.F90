@@ -206,7 +206,7 @@ program main
   lwork_d = 2*64*64 + 66*N
   call hipCheck(hipMalloc(work_d, lwork_d))
   ts = wallclock()
-  call dsygvdx_gpu_h(N, A2_d, lda, B2_d, lda, Z2_d, lda, il, iu, w2_d, work_d, lwork_d, &
+  call dsygvdx_gpu_h(N, A2_d,A2, lda, B2_d, B2, lda, Z2_d, lda, il, iu, w2_d, work_d, lwork_d, &
                      work, lwork, iwork, liwork, Z2, lda, w2, istat)
   te = wallclock()
   print *, "Time for CUSTOM dsygvd/x = ", (te - ts)*1000.0
