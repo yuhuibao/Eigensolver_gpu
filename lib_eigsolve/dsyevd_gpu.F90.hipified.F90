@@ -78,11 +78,11 @@ contains
         indwk3 = indwk2 + (nb2)*(nb2)
 
         !JR Note: ADD SCALING HERE IF DESIRED. Not scaling for now.
-
-        ! Call DSYTRD to reduce A to tridiagonal form
-        call dsytrd_gpu_h('U', N, A, lda, w, work(inde), work(indtau), work(indwrk), llwork, nb1)
         call hipCheck(hipMemcpy(A_h, A, lda*N, hipMemcpyDeviceToHost))
         call print_matrix(A_h)
+        ! Call DSYTRD to reduce A to tridiagonal form
+        call dsytrd_gpu_h('U', N, A, lda, w, work(inde), work(indtau), work(indwrk), llwork, nb1)
+        
 
         ! Copy diagonal and superdiagonal to CPU
         !w_h(1:N) = w(1:N)
@@ -90,6 +90,9 @@ contains
 
         !work_h(inde:inde+N-1) = work(inde:inde+N-1)
         call hipCheck(hipMemcpy(work(inde:inde + N - 1), work_h(inde:inde + N - 1), N, hipMemcpyDeviceToHost))
+        call print_vector(w_h)
+        call print_vector(work_h)
+        stop
 
         ! Restore lower triangular of A (works if called from zhegvd only!)
         ! extracted to HIP C++ file

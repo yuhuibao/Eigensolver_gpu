@@ -88,7 +88,7 @@ __global__ void krnl_959801_0(double *z,
   //printf("%d %d %d", i, j,n);
   if ((j <= n) && (i <= n)) {
     if ((i > j)) {
-      //printf("%f\n",a[_idx_a(i,j)]);
+      // printf("%f\n",a[_idx_a(i,j)]);
       z[_idx_z(i, j)] = a[_idx_a(i, j)];
     }
   }

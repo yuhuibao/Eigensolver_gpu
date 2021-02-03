@@ -5,4 +5,4 @@ make -f mk
 cd -
 make clean
 make
-./test_dsygvdx 5
+./test_dsygvdx mat1.dat mat2.dat

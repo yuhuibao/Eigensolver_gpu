@@ -47,8 +47,8 @@ module dsytd2_gpu_kernels
             use iso_c_binding
             use hipfort
             implicit none
-            type(dim3), intent(IN) :: grid
-            type(dim3), intent(IN) :: block
+            type(dim3),value, intent(IN) :: grid
+            type(dim3), value, intent(IN) :: block
             integer(c_int), value, intent(IN) :: sharedMem
             type(c_ptr), value, intent(IN) :: stream
             INTEGER, value :: lda
@@ -227,34 +227,34 @@ contains
         if (N > 1) then
             iw = nb
             ! Generate elementary reflector H(i) to annihilate A(1:i-2, i)
-            CALL launch_dlarfg_kernel_m(dim3(1, 1, 1), threads, 0, c_null_ptr, N - 1, tau(N - 1), e(N - 1), A(1, N))
+            CALL launch_dlarfg_kernel_m(dim3(1, 1, 1), threads, 16, c_null_ptr, N - 1, tau(N - 1), e(N - 1), A(1, N))
             ! extracted to HIP C++ file
             ! TODO(gpufort) fix arguments
             CALL launch_krnl_37a79c_1_auto(0, c_null_ptr, c_loc(w), ldw, nb, 1, 1, n, iw)
 
             blocks2D = dim3(10, ceiling(real(N - 1)/32), 1) !JR TODO: What is optimal number of columns for our problem size?
-            CALL launch_dsymv_gpu_m(blocks2D, threads2D, 0, c_null_ptr, N - 1, lda, A, A(1, N), W(1, iw))
+            CALL launch_dsymv_gpu_m(blocks2D, threads2D, (32+1)*32*8 + 32*8, c_null_ptr, N - 1, lda, A, A(1, N), W(1, iw))
 
-            CALL launch_finish_W_col_kernel_m(dim3(1, 1, 1), threads, 0, c_null_ptr, N - 1, tau(N - 1), A(1, N), W(1, iw))
+            CALL launch_finish_W_col_kernel_m(dim3(1, 1, 1), threads, 8, c_null_ptr, N - 1, tau(N - 1), A(1, N), W(1, iw))
         endif
 
         do i = N - 1, N - nb + 1, -1
             iw = i - N + nb
 
             blocks2D = dim3(ceiling(real(max(i, N - i))/32), ceiling(real(N - i)/8), 1)
-            CALL launch_dsyr2_mv_dlarfg_kernel_m(blocks2D, threads2D, 0, c_null_ptr, i, N - i, lda, ldw, ldw, A(1, i + 1), &
+            CALL launch_dsyr2_mv_dlarfg_kernel_m(blocks2D, threads2D, 20, c_null_ptr, i, N - i, lda, ldw, ldw, A(1, i + 1), &
                                                  W(1, iw + 1), A(1, i), W(1, iw), e(i - 1), tau(i - 1), finished)
 
             if (i > 1) then
                 ! Generate elementary reflector H(i) to annihilate A(1:i-2, i)
 
                 blocks2D = dim3(10, ceiling(real(i - 1)/32), 1) !JR TODO: What is optimal number of columns for our problem size?
-                CALL launch_dsymv_gpu_m(blocks2D, threads2D, 0, c_null_ptr, i - 1, lda, A, A(1, i), W(1, iw))
+                CALL launch_dsymv_gpu_m(blocks2D, threads2D, (32+1)*32*8 + 32*8, c_null_ptr, i - 1, lda, A, A(1, i), W(1, iw))
 
                 blocks2D = dim3(ceiling(real(i - 1)/32), ceiling(real(2*(n - i))/8), 1)
               CALL launch_stacked_dgemv_T_m(blocks2D, threads2D, 0, c_null_ptr, n - i, i - 1, lda, ldw, A(1, i + 1), W(1, iw + 1), &
                                               A(1, i), W(i + 1, iw), W(i + 1, iw + 1))
-                CALL launch_stacked_dgemv_N_finish_W_m(blocks2D, threads2D, 0, c_null_ptr, i - 1, n - i, lda, ldw, A(1, i + 1), &
+                CALL launch_stacked_dgemv_N_finish_W_m(blocks2D, threads2D, 12, c_null_ptr, i - 1, n - i, lda, ldw, A(1, i + 1), &
                                               W(1, iw + 1), W(i + 1, iw), W(i + 1, iw + 1), W(1, iw), tau(i - 1), A(1, i), finished)
 
             end if

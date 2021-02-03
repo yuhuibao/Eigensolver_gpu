@@ -197,8 +197,9 @@ int ar_s_n1, ar_s_lb1, ar_s_n2, ar_s_lb2, r_s_n1, r_s_lb1;
 #define NTILES 4
   // ! TODO could not parse:      real(8), dimension(bx + 1, bx), shared              :: ar_s
   // ! TODO could not parse:      real(8), dimension(bx), shared                    :: r_s
-  __shared__ double r_s[BX];
-  __shared__ double* ar_s;
+  extern __shared__ double s[];
+  double *r_s = s;
+  double *ar_s = s + (BX+1)*BX*8;
   ar_s_n1 = BX + 1;
   ar_s_n2 = BX;
   ar_s_lb1 = 1;

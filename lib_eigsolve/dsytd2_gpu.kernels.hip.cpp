@@ -241,6 +241,7 @@ __global__ void dsytd2_gpu(int lda,
                            const int e_n1,
                            const int e_lb1,
                            int n) {
+                            
 #undef _idx_a
 #define _idx_a(a, b) ((a - (a_lb1)) + a_n1 * (b - (a_lb2)))
 #undef _idx_tau
@@ -270,6 +271,8 @@ __global__ void dsytd2_gpu(int lda,
   int i;
   int j;
   int ii;
+
+  //printf("Hello\n");
   alpha = params[0];
   taui = params[1];
   tx = threadIdx.x + 1;
@@ -281,6 +284,7 @@ __global__ void dsytd2_gpu(int lda,
     a_s[_idx_a_s(tx, ty)] = a[_idx_a(tx, ty)];
   }
   __syncthreads(); // ! Symmetric matrix from upper triangular
+  
   if ((tx > ty)) {
     a_s[_idx_a_s(tx, ty)] = a_s[_idx_a_s(ty, tx)];
   }
@@ -414,8 +418,8 @@ for (i = n - 1; i >= 1; i--) {
   }
 }
 
-extern "C" void launch_dsytd2_gpu(dim3 *grid,
-                                  dim3 *block,
+extern "C" void launch_dsytd2_gpu(dim3 grid,
+                                  dim3 block,
                                   const int sharedMem,
                                   hipStream_t stream,
                                   int lda,
@@ -434,10 +438,10 @@ extern "C" void launch_dsytd2_gpu(dim3 *grid,
                                   const int e_n1,
                                   const int e_lb1,
                                   int n) {
-
+printf("I am a message %d",a_n1);
   hipLaunchKernelGGL((dsytd2_gpu),
-                     *grid,
-                     *block,
+                     grid,
+                     block,
                      sharedMem,
                      stream,
                      lda,
@@ -456,5 +460,7 @@ extern "C" void launch_dsytd2_gpu(dim3 *grid,
                      e_n1,
                      e_lb1,
                      n);
+                     hipDeviceSynchronize();
+                     exit(0);
 }
 // END dsytd2_gpu

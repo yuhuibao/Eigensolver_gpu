@@ -289,16 +289,17 @@ __global__ void dlarfg_kernel(int n, double tau, double e, double *x,
   double rsum;
   // ! TODO could not parse:        real(8), shared                  :: xnorm
   // ! TODO could not parse:        real(8), shared                  :: alpha_s
-  __shared__ double xnorm;
-  __shared__ double alpha_s;
+  extern __shared__ double s[];
+  double *xnorm = s;
+  double *alpha_s = s + 1*8;
   tid = threadIdx.x + 1;
   laneid = tid & 31;
   if (tid == 1) {
-    alpha_s = x[_idx_x(n)];
-    xnorm = 0.0 /*_8*/;
+    *alpha_s = x[_idx_x(n)];
+    *xnorm = 0.0 /*_8*/;
   }
   __syncthreads();
-  alphar = alpha_s;
+  alphar = *alpha_s;
   rsum = 0.0 /*_8*/;
   nb = ceil((float(n) / blockDim.x));
   // ! number of blocks down column
@@ -328,20 +329,20 @@ __global__ void dlarfg_kernel(int n, double tau, double e, double *x,
   rv2 = __shfl_down(rv1, 16);
   rv1 = (rv1 + rv2);
   if (laneid == 1) {
-    istat = atomicAdd(&xnorm, rv1);
+    istat = atomicAdd(xnorm, rv1);
   }
   __syncthreads();
-  if (xnorm == 0.0 /*_8*/) {
+  if (*xnorm == 0.0 /*_8*/) {
     if (tid == 0) {
       tau = 0.0 /*_8*/;
     }
   } else {
     if (tid == 1) {
-      xnorm = sqrt(xnorm);
+      *xnorm = sqrt(*xnorm);
       rv1 = abs(alphar);
       // ! not taking abs of xnorm
-      scal = max(rv1, xnorm);
-      scal2 = min(rv1, xnorm);
+      scal = max(rv1, *xnorm);
+      scal2 = min(rv1, *xnorm);
       if (scal2 == 0.0e0) {
         if (alphar >= 0) {
           beta = -abs(scal);
@@ -361,14 +362,14 @@ __global__ void dlarfg_kernel(int n, double tau, double e, double *x,
       tau = ((beta - alphar) / beta);
       e = beta;
       // ! store beta in e vector
-      alpha_s = (1.e0 / (alphar - beta));
+      *alpha_s = (1.e0 / (alphar - beta));
       // !scaling factor for dscal
     }
 
     __syncthreads();
     for (int i = tid; i <= n; i += blockDim.x) {
       if ((i <= (n - 1))) {
-        x[_idx_x(i)] = (alpha_s * x[_idx_x(i)]);
+        x[_idx_x(i)] = (*alpha_s * x[_idx_x(i)]);
 
       } else if (i == n) {
         x[_idx_x(i)] = 1.0 /*_8*/;
@@ -557,7 +558,10 @@ __global__ void dsyr2_mv_dlarfg_kernel(
   int laneid;
   int istat;
   int nblocks;
-  __shared__ int nfinished;
+  extern __shared__ int s1[];
+  int *nfinished = s1;
+  double *xnorm = (double*)&s1[1];
+  double *alpha_s = xnorm + 8;
   double rv;
   double rv1;
   double rv2;
@@ -567,8 +571,7 @@ __global__ void dsyr2_mv_dlarfg_kernel(
   double alphar;
   double beta;
   double rsum;
-  __shared__ double xnorm;
-  __shared__ double alpha_s;
+  
   tx = threadIdx.x + 1;
   ty = threadIdx.y + 1;
   i = ((blockIdx.x) * blockDim.x + tx);
@@ -592,13 +595,13 @@ __global__ void dsyr2_mv_dlarfg_kernel(
     }
   }
   __threadfence();
-  nfinished = 0;
+  *nfinished = 0;
   __syncthreads();
   if ((tx + ty) == 2) {
-    nfinished = atomicInc(&finished[0], (nblocks - 1));
+    *nfinished = atomicInc(&finished[0], (nblocks - 1));
   }
   __syncthreads();
-  if ((nfinished < (nblocks - 1))) {
+  if ((*nfinished < (nblocks - 1))) {
     return; // ! Begin dlarfg work with last block
   }
   if (n == 1) {
@@ -607,11 +610,11 @@ __global__ void dsyr2_mv_dlarfg_kernel(
   tid = (tx + (ty - 1) * blockDim.x);
   laneid = tid & 31;
   if (tid == 1) {
-    alpha_s = x[_idx_x((n - 1))];
-    xnorm = 0.0 /*_8*/;
+    *alpha_s = x[_idx_x((n - 1))];
+    *xnorm = 0.0 /*_8*/;
   }
   __syncthreads();
-  alphar = alpha_s;
+  alphar = *alpha_s;
   rsum = 0.0 /*_8*/;
   nb = ceil((float((n - 1)) / blockDim.x * blockDim.y));
   // ! number of blocks down column
@@ -641,20 +644,20 @@ __global__ void dsyr2_mv_dlarfg_kernel(
   rv2 = __shfl_down(rv1, 16);
   rv1 = (rv1 + rv2);
   if (laneid == 1) {
-    istat = atomicAdd(&xnorm, rv1);
+    istat = atomicAdd(xnorm, rv1);
   }
   __syncthreads();
-  if (xnorm == 0.0 /*_8*/) {
+  if (*xnorm == 0.0 /*_8*/) {
     if (tid == 1) {
       tau = 0.0 /*_8*/;
     }
   } else {
     if (tid == 1) {
-      xnorm = sqrt(xnorm);
+      *xnorm = sqrt(*xnorm);
       rv1 = abs(alphar);
       // ! not taking abs of xnorm
-      scal = max(rv1, xnorm);
-      scal2 = min(rv1, xnorm);
+      scal = max(rv1, *xnorm);
+      scal2 = min(rv1, *xnorm);
       if (scal2 == 0.0e0) {
         if (alphar >= 0) {
           beta = -abs(scal);
@@ -674,13 +677,13 @@ __global__ void dsyr2_mv_dlarfg_kernel(
       tau = ((beta - alphar) / beta);
       e = beta;
       // ! store beta in e vector
-      alpha_s = (1.e0 / (alphar - beta));
+      *alpha_s = (1.e0 / (alphar - beta));
       // !scaling factor for dscal
     }
     __syncthreads();
     for (int i = tid; i <= (n - 1); i += (blockDim.x * blockDim.y)) {
       if ((i <= (n - 2))) {
-        x[_idx_x(i)] = (alpha_s * x[_idx_x(i)]);
+        x[_idx_x(i)] = ((*alpha_s) * x[_idx_x(i)]);
 
       } else if (i == (n - 1)) {
         x[_idx_x(i)] = 1.0 /*_8*/;
@@ -950,12 +953,13 @@ __global__ void finish_w_col_kernel(int n, double tau, double *x,
   double mytau;
   // ! TODO could not parse:        real(8), shared :: alphar !real(8), shared
   // :: alpha
-  __shared__ double alphar;
+  extern __shared__ double s2[];
+  double *alphar = s2;
   double alpha;
   tid = threadIdx.x + 1;
   laneid = tid & 31;
   if (tid == 1) {
-    alphar = 0.0 /*_8*/;
+    alphar[0] = 0.0 /*_8*/;
   }
   __syncthreads();
   rsum = 0.0 /*_8*/;
@@ -987,10 +991,10 @@ __global__ void finish_w_col_kernel(int n, double tau, double *x,
   rv2 = __shfl_down(rv1, 16);
   rv1 = (rv1 + rv2);
   if (laneid == 1) {
-    istat = atomicAdd(&alphar, rv1);
+    istat = atomicAdd(alphar, rv1);
   }
   __syncthreads();
-  alpha = (-0.5e0 * mytau * alphar);
+  alpha = (-0.5e0 * mytau * alphar[0]);
   for (int i = tid; i <= n; i += blockDim.x) {
     y[_idx_y(i)] = (mytau * y[_idx_y(i)] + alpha * x[_idx_x(i)]);
     // !daxpy
@@ -1148,13 +1152,14 @@ __global__ void stacked_dgemv_n_finish_w(
   int tid;
   int laneid;
   int nb;
-  __shared__ int nfinished;
+  extern __shared__ int s3[];
+  int *nfinished = s3;
   double rv1;
   double rv2;
   double rsum;
   double xr;
   double mytau;
-  __shared__ double alphar;
+  double *alphar = (double*)&s3[1];
   double alpha;
   tx = threadIdx.x + 1;
   ty = threadIdx.y + 1;
@@ -1174,19 +1179,19 @@ __global__ void stacked_dgemv_n_finish_w(
     istat = atomicAdd(y+_idx_y(i)*8, rv1);
   }
   __threadfence();
-  nfinished = 0;
+  *nfinished = 0;
   __syncthreads();
   if ((tx + ty) == 2) {
-    nfinished = atomicInc(&finished[0], (nblocks - 1));
+    *nfinished = atomicInc(&finished[0], (nblocks - 1));
   }
   __syncthreads();
-  if ((nfinished < (nblocks - 1))) {
+  if ((*nfinished < (nblocks - 1))) {
     return;
   }
   tid = (threadIdx.x + (threadIdx.y) * blockDim.x) + 1;
   laneid = tid & 31;
   if (tid == 1) {
-    alphar = 0.0 /*_8*/;
+    *alphar = 0.0 /*_8*/;
   }
   __syncthreads();
   rsum = 0.0 /*_8*/;
@@ -1218,10 +1223,10 @@ __global__ void stacked_dgemv_n_finish_w(
   rv2 = __shfl_down(rv1, 16);
   rv1 = (rv1 + rv2);
   if (laneid == 1) {
-    istat = atomicAdd(&alphar, rv1);
+    istat = atomicAdd(alphar, rv1);
   }
   __syncthreads();
-  alpha = (-0.5e0 * mytau * alphar);
+  alpha = (-0.5e0 * mytau * (*alphar));
   for (int i = tid; i <= m; i += (blockDim.x * blockDim.y)) {
     y[_idx_y(i)] = (mytau * y[_idx_y(i)] + alpha * x[_idx_x(i)]);
     // !daxpy

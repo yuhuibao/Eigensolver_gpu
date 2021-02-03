@@ -75,7 +75,8 @@ contains
         use utils
         use hipfort
         use iso_c_binding
-        use hipfort_rocsolver
+        use hipfort_rocblas
+        use hipfort_rocsolver, only: rocsolver_dpotrf
         use hipfort_check
         implicit none
         integer                                     :: N, m, lda, ldb, ldz, il, iu, ldz_h, info, nb
