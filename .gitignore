@@ -1,4 +1,3 @@
-*.dat
 tempt.F90
 test_step.F90
 *.a
