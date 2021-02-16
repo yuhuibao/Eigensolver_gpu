@@ -128,7 +128,7 @@ contains
         use dsytd2_gpu_kernels
         implicit none
         character                                 :: uplo
-        integer                                   :: N, lda, lwork, nb, nx, ldwork, istat
+        integer                                   :: N, lda, lwork, nb, nx, ldwork, istat,nb1
         integer                                   :: i, j, k, kk
         real(8), target, dimension(1:N)           :: d
         real(8), target, dimension(1:N - 1)         :: e
@@ -168,15 +168,15 @@ contains
         end do
 
         ! Finish any remaining columns to get final 32x32 block
-        nb = k - 32 - 1
-        i = k - nb
+        nb1 = k - 32 - 1
+        i = k - nb1
 
-        if (nb > 0) then
+        if (nb1 > 0) then
             ! Reduce columns i:i+nb-1 to tridiagonal form
-            call dlatrd_gpu(uplo, i + nb - 1, nb, A, lda, e, tau, work, ldwork)
+            call dlatrd_gpu(uplo, i + nb1 - 1, nb1, A, lda, e, tau, work, ldwork)
 
             ! Update trailing submatrix
-            call hipblasCheck(hipblasdsyr2k_m(hipblasHandle, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb, -one, &
+            call hipblasCheck(hipblasdsyr2k_m(hipblasHandle, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb1, -one, &
                                               A(1, i), lda, work, ldwork, one, A, lda))
 
         endif

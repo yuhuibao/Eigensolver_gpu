@@ -5,22 +5,21 @@ FOBJS = dsygvdx_gpu.F90.hipified.o dsytrd_gpu.F90.hipified.o dsyevd_gpu.F90.hipi
 INTFOJBS = dsytrd_gpu.kernels.o dsyevd_gpu.kernels.o dsygvdx_gpu.kernels.o dsygst_gpu_kernels.o
 
 MODULES_DIR=/opt/rocm/hipfort/include/amdgcn
-MODULES_DIR1=../../gpufort/modules/rocm-utils
-CXX=hipcc -g -DHCC_ENABLE_ACCELERATOR_PRINTF
+CXX=hipcc -g -ggdb -O0
 FC=gfortran -g -cpp
 all: lib_eigsolve.a
 
 eigsolve_vars.o: eigsolve_vars.F90.hipified.F90
-	$(FC) -I$(MODULES_DIR) -I$(MODULES_DIR1) -c $^ -o $@
+	$(FC) -I$(MODULES_DIR)  -c $^ -o $@
 
 dsygvdx_gpu.F90.hipified.o: dsygvdx_gpu.kernels.f08 dsygvdx_gpu.F90.hipified.F90 dsygst_gpu.F90.hipified.o dsyevd_gpu.F90.hipified.o utils.o
-	$(FC) -I$(MODULES_DIR) -I$(MODULES_DIR1) -c dsygvdx_gpu.kernels.f08 dsygvdx_gpu.F90.hipified.F90
+	$(FC) -I$(MODULES_DIR)  -c dsygvdx_gpu.kernels.f08 dsygvdx_gpu.F90.hipified.F90
 
 dsygvdx_gpu_kernels.o: dsygvdx_gpu.kernels.hip.cpp
 	$(CXX) -fno-gpu-rdc -fPIC -c $< -o $@
 
 dsyevd_gpu.F90.hipified.o: dsyevd_gpu.kernels.f08 dsyevd_gpu.F90.hipified.F90 dsytrd_gpu.F90.hipified.o utils.o
-	$(FC) -I$(MODULES_DIR) -I$(MODULES_DIR1) -c dsyevd_gpu.kernels.f08 dsyevd_gpu.F90.hipified.F90
+	$(FC) -I$(MODULES_DIR)  -c dsyevd_gpu.kernels.f08 dsyevd_gpu.F90.hipified.F90
 
 dsyevd_gpu_kernels.o: dsyevd_gpu.kernels.hip.cpp
 	$(CXX) -fno-gpu-rdc -fPIC -c $< -o $@
@@ -28,7 +27,7 @@ dsyevd_gpu_kernels.o: dsyevd_gpu.kernels.hip.cpp
 dsytrd_gpu_kernels.o: dsytrd_gpu.kernels.hip.cpp
 	$(CXX) -fno-gpu-rdc -fPIC -c $^ -o $@
 dsytrd_gpu.F90.hipified.o: dsytrd_gpu.kernels.f08 dsytrd_gpu.F90.hipified.F90 eigsolve_vars.o
-	$(FC) -I$(MODULES_DIR) -I$(MODULES_DIR1) -c dsytrd_gpu.kernels.f08 dsytrd_gpu.F90.hipified.F90
+	$(FC) -I$(MODULES_DIR)  -c dsytrd_gpu.kernels.f08 dsytrd_gpu.F90.hipified.F90
 
 dsytd2_gpu_kernels.o: dsytd2_gpu.kernels.hip.cpp
 	$(CXX) -fno-gpu-rdc -fPIC -c $^ -o $@
@@ -39,7 +38,7 @@ dsygst_gpu_kernels.o: dsygst_gpu.kernels.hip.cpp
 	$(CXX) -fno-gpu-rdc -fPIC -c $^ -o $@
 
 dsygst_gpu.F90.hipified.o: dsygst_gpu.kernels.f08 dsygst_gpu.F90.hipified.F90 eigsolve_vars.o
-	$(FC) -I$(MODULES_DIR) -I$(MODULES_DIR1) -c dsygst_gpu.kernels.f08 dsygst_gpu.F90.hipified.F90
+	$(FC) -I$(MODULES_DIR)  -c dsygst_gpu.kernels.f08 dsygst_gpu.F90.hipified.F90
 
 utils.o: utils.F90
 	$(FC) -c utils.F90

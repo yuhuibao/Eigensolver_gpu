@@ -24,7 +24,6 @@
 module dsygst_gpu
     use hipfort
     use iso_c_binding
-    use iso_c_binding_ext
     use hipfort_hipblas
     use hipfort_check
 
