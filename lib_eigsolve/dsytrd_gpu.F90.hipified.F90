@@ -182,10 +182,10 @@ contains
         endif
 
         ! Final block
-        threads = dim3(32, 32, 1)
+        threads = dim3(64, 64, 1)
         grid = dim3(1, 1, 1)
-      CALL launch_dsytd2_gpu(grid, threads, 32*32*8 + 16, c_null_ptr, lda, c_loc(A), lda, N, 1, 1, c_loc(tau), N - 1, 1, c_loc(d), &
-                               N, 1, c_loc(e), N - 1, 1, min(32, N))
+      CALL launch_dsytd2_gpu(grid, threads, 64*64*8 + 16, c_null_ptr, lda, c_loc(A), lda, N, 1, 1, c_loc(tau), N - 1, 1, c_loc(d), &
+                               N, 1, c_loc(e), N - 1, 1, min(64, N))
 
         ! Copy superdiagonal back into A, store diagonal in d
         ! extracted to HIP C++ file

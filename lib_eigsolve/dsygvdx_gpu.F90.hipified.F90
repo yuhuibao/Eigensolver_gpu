@@ -147,8 +147,8 @@ contains
         ! Reduce to standard eigenproblem
         nb = 448
         call dsygst_gpu_h(1, 'U', N, A, lda, B, ldb, nb)
-        ! call hipCheck(hipMemcpy(A_h, A, lda*N, hipMemcpyDeviceToHost))
-        ! call print_matrix(A_h)
+        call hipCheck(hipMemcpy(A_h, A, lda*N, hipMemcpyDeviceToHost))
+        call print_matrix(A_h)
 
         ! Tridiagonalize and compute eigenvalues/vectors
         call dsyevd_gpu_h('V', 'U', il, iu, N, A, A_h, lda, Z, ldz, w, work, lwork, &
