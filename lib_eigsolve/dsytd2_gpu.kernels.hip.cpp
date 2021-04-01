@@ -251,11 +251,14 @@ __global__ void dsytd2_gpu(int lda,
 #undef _idx_e
 #define _idx_e(a) ((a - (e_lb1)))
 #undef _idx_a_s
-#define _idx_a_s(a, b) ((a - 1) + 32 * (b - 1))
+#define _idx_a_s(a, b) ((a - 1) + 16 * (b - 1))
+#undef _idx_a_s_1
+#define _idx_a_s_1(a, b) ((a - 1) + 16 * (b - 1))
 
   extern __shared__ double s[]; 
-  double *a_s = s; /* Fortran qualifiers: SHARED */
-  double *params = &s[32*32];       /* Fortran qualifiers: SHARED */
+  double *a_s = s; 
+  double *a_s_1 = &s[16*16];
+  double *params = &s[32*32];
   double taui, alpha;
   double beta;
   double alphar;
@@ -264,23 +267,24 @@ __global__ void dsytd2_gpu(int lda,
   double y;
   double z;
   double w;
-  double wc;
   int tx;
   int ty;
   int tl;
   int i;
   int j;
-  int ii;
+  int stride;
 
   //printf("Hello\n");
   alpha = params[0];
   taui = params[1];
+  x = params[2];
   tx = threadIdx.x + 1;
   ty = threadIdx.y + 1;
   // ! Linear id of the thread (tx,ty)
   tl = (tx + blockDim.x * (ty - 1));
   // ! Load a_d in shared memory
-  if ((tx <= n & ty <= n)) {
+  if (tx <= n && ty <= n) {
+    //printf("Hello\n");
     a_s[_idx_a_s(tx, ty)] = a[_idx_a(tx, ty)];
   }
   __syncthreads(); // ! Symmetric matrix from upper triangular
@@ -289,28 +293,30 @@ __global__ void dsytd2_gpu(int lda,
     a_s[_idx_a_s(tx, ty)] = a_s[_idx_a_s(ty, tx)];
   }
   __syncthreads(); // ! For each column working backward
-for (i = n - 1; i >= 1; i--) {
-    if ((tl <= 32)) {
-      if ((tl < i)) {
-        w = (a_s[_idx_a_s(tl, (i + 1))] * a_s[_idx_a_s(tl, (i + 1))]);
-
+  for (i = n - 1; i >= 1; i--) {
+    if (tl <= 16) {
+      if (tl < i) {
+       a_s_1[_idx_a_s_1(tl, (i + 1))] = a_s[_idx_a_s(tl, (i + 1))] * a_s[_idx_a_s(tl, (i + 1))];
       } else {
-        w = 0. /*_8*/;
+        a_s_1[_idx_a_s_1(tl, (i + 1))] = 0. /*_8*/;
       }
-      xnorm = __shfl_down(w, 1);
-      w = (w + xnorm);
-      xnorm = __shfl_down(w, 2);
-      w = (w + xnorm);
-      xnorm = __shfl_down(w, 4);
-      w = (w + xnorm);
-      xnorm = __shfl_down(w, 8);
-      w = (w + xnorm);
-      xnorm = __shfl_down(w, 16);
-      w = (w + xnorm);
     }
+    __syncthreads();
+
+    stride = 2;
+    while (stride <= 16) {
+      if (tl <= 16 && (tl-1)%stride == 0){
+       a_s_1[_idx_a_s_1(tl, (i + 1))] += a_s_1[_idx_a_s_1(tl+stride/2, (i + 1))]; 
+      }
+      stride *= 2;
+      __syncthreads();
+    }
+
     if (tl == 1) {
+      w = a_s_1[_idx_a_s_1(tl, (i + 1))];
+      printf("w = %g\n",w);
       alpha = a_s[_idx_a_s(i, (i + 1))];
-      //alphar = make_double(alpha);
+      alphar = alpha;
       xnorm = sqrt(w);
       if (xnorm == 0 /*_8*/) {
         // ! H=1
@@ -332,88 +338,91 @@ for (i = n - 1; i >= 1; i--) {
             }
         } else {
             if (alphar >=0){
-                beta = -abs(w * sqrt(pow((1.e0 + (z / w)),2)));
+                beta = -abs(w * sqrt(1.e0 + pow(z / w,2)));
             }else {
-
-          beta = abs(w * sqrt(pow((1.e0 + (z / w)),2)));
+                beta = abs(w * sqrt(1.e0 + pow(z / w,2))); 
             }
         }
-        taui = ((beta - alphar) / beta);
-        alpha = (1.e0 / (alphar - beta));
-        // ! scale factor for dscal
+        taui = (beta - alphar) / beta;
+        alpha = 1.e0 / (alphar - beta); // ! scale factor for dscal
+        printf("taui = %g, beta = %g\n",taui,beta);
       }
     }
     __syncthreads(); // ! dscal
-    if ((tl < i)) {
-      a_s[_idx_a_s(tl, (i + 1))] = (a_s[_idx_a_s(tl, (i + 1))] * alpha);
+    if (tl < i) {
+      a_s[_idx_a_s(tl, (i + 1))] = a_s[_idx_a_s(tl, (i + 1))] * alpha;
     }
-    if (tl == 1) {
-      if ((xnorm != 0 /*_8*/)) {
-        alpha = beta;
 
+    if (tl == 1) {
+      if (xnorm != 0 /*_8*/) {
+        alpha = beta;
       } else {
-        alpha = a_s[_idx_a_s(i, (i + 1))];
-        // ! reset alpha to original value
+        alpha = a_s[_idx_a_s(i, (i + 1))]; // ! reset alpha to original value
       }
       e[_idx_e(i)] = alpha;
     }
-    // ! TODO could not parse:           if (taui .ne. (0.d0, 0.d0)) then
+    printf("Check: %d %d %g\n",tx,ty,taui);
     if (taui != 0.e0) {
       a_s[_idx_a_s(i, (i + 1))] = 1.e0;
       __syncthreads();
-      if ((tl <= i)) {
+      if (tl <= i) {
         tau[tl] = 0.e0;
         for (int j = 1; j <= i; j += 1) {
-          tau[tl] = (tau[tl] +
-                     taui * a_s[_idx_a_s(tl, j)] * a_s[_idx_a_s(j, (i + 1))]);
+          tau[tl] = tau[tl] +
+                     taui * a_s[_idx_a_s(tl, j)] * a_s[_idx_a_s(j, (i + 1))];
         }
+        printf("tau[tl] = %g\n",tau[tl]);
       }
       __syncthreads();
-      if ((tl <= 32)) {
-        if ((tl <= i)) {
-          x = (-.5e0 * taui * tau[tl] * a_s[_idx_a_s(tl, (i + 1))]);
 
+      if ((tl <= 16)) {
+        if ((tl <= i)) {
+          a_s_1[_idx_a_s_1(tl, (i + 1))] = -.5e0 * taui * tau[tl] * a_s[_idx_a_s(tl, (i + 1))];
         } else {
-          x = 0. /*_8*/;
+          a_s_1[_idx_a_s_1(tl, (i + 1))] = 0. /*_8*/;
         }
-        z = __shfl_xor(x, 1);
-        x = (x + z);
-        z = __shfl_xor(x, 2);
-        x = (x + z);
-        z = __shfl_xor(x, 4);
-        x = (x + z);
-        z = __shfl_xor(x, 8);
-        x = (x + z);
-        z = __shfl_xor(x, 16);
-        x = (x + z);
       }
       __syncthreads();
-      if ((tl <= i)) {
+
+      stride = 2;
+      while (stride <= 16) {
+        if (tl <= 16 && (tl-1)%stride == 0){
+          a_s_1[_idx_a_s_1(tl, (i + 1))] += a_s_1[_idx_a_s_1(tl+stride/2, (i + 1))]; 
+        }
+        __syncthreads();
+        stride *= 2;
+      }
+
+      if (tl == 1) {
+        x = a_s_1[_idx_a_s_1(tl, (i + 1))];
+        printf("x = %g\n",x);
+      }
+
+      if (tl <= i) {
         tau[tl] = (tau[tl] + x * a_s[_idx_a_s(tl, (i + 1))]);
       }
-      if (tl == 1) {
-        alpha = x;
-      }
+
       __syncthreads();
-      if ((tx <= i & ty <= i)) {
-        a_s[_idx_a_s(tx, ty)] = (a_s[_idx_a_s(tx, ty)] -
+      if (tx <= i && ty <= i) {
+        a_s[_idx_a_s(tx, ty)] = a_s[_idx_a_s(tx, ty)] -
                                  a_s[_idx_a_s(tx, (i + 1))] * tau[_idx_tau(ty)] -
-                                 a_s[_idx_a_s(ty, (i + 1))] * tau[_idx_tau(tx)]);
+                                 a_s[_idx_a_s(ty, (i + 1))] * tau[_idx_tau(tx)];
       }
-      __syncthreads(); // ! TODO could not parse:           endif
+      __syncthreads(); 
     }
     if (tl == 1) {
       a_s[_idx_a_s(i, (i + 1))] = e[_idx_e(i)];
       d[_idx_d((i + 1))] = a_s[_idx_a_s((i + 1), (i + 1))];
       tau[_idx_tau(i)] = taui;
     }
-    __syncthreads(); // ! TODO could not parse:        end do
+    __syncthreads(); 
   }
   if (tl == 1) {
     d[_idx_d(1)] = a_s[_idx_a_s(1, 1)];
   }
   __syncthreads(); // ! Back to device memory
-  if ((tx <= n & ty <= n)) {
+
+  if (tx <= n && ty <= n) {
     a[_idx_a(tx, ty)] = a_s[_idx_a_s(tx, ty)];
   }
 }
@@ -438,7 +447,7 @@ extern "C" void launch_dsytd2_gpu(dim3 grid,
                                   const int e_n1,
                                   const int e_lb1,
                                   int n) {
-printf("I am a message %d",a_n1);
+//printf("I am a message %d",a_n1);
   hipLaunchKernelGGL((dsytd2_gpu),
                      grid,
                      block,
@@ -460,7 +469,7 @@ printf("I am a message %d",a_n1);
                      e_n1,
                      e_lb1,
                      n);
-                     hipDeviceSynchronize();
-                     exit(0);
+                    //  hipDeviceSynchronize();
+                    //  exit(0);
 }
 // END dsytd2_gpu

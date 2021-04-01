@@ -124,7 +124,7 @@ contains
     subroutine dsytrd_gpu_h(uplo, N, A, lda, d, e, tau, work, lwork, nb)
         use dsytrd_gpu_kernels
         use eigsolve_vars
-
+        use utils
         use dsytd2_gpu_kernels
         implicit none
         character                                 :: uplo
@@ -134,6 +134,7 @@ contains
         real(8), target, dimension(1:N - 1)         :: e
         real(8), target, dimension(1:lwork)       :: work
         real(8), target, dimension(1:lda, 1:N)    :: A
+        real(8), dimension(1:lda, 1:N)            :: A_h
         real(8), target, dimension(1:N - 1)         :: tau
 
         real(8), parameter                        :: one = 1.0_8
@@ -149,48 +150,54 @@ contains
             return
         endif
 
-        ldwork = N
+        ! ldwork = N
 
-        call hipblasCheck(hipblasSetStream(hipblasHandle, stream1))
+        ! call hipblasCheck(hipblasSetStream(hipblasHandle, stream1))
 
-        kk = N - ((N - 32)/nb)*nb
-        k = N + 1
-        do i = N - nb + 1, kk + 1, -nb
-            ! Reduce columns i:i+nb-1 to tridiagonal form
-            call dlatrd_gpu(uplo, i + nb - 1, nb, A, lda, e, tau, work, ldwork)
+        ! kk = N - ((N - 64)/nb)*nb
+        ! k = N + 1
+        ! do i = N - nb + 1, kk + 1, -nb
+        !     ! Reduce columns i:i+nb-1 to tridiagonal form
+        !     call dlatrd_gpu(uplo, i + nb - 1, nb, A, lda, e, tau, work, ldwork)
 
-            ! Update trailing submatrix
-          call hipblasCheck(hipblasdsyr2k_m(hipblasHandle, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb, -one, A(1, i), lda, &
-                                              work, ldwork, one, A, lda))
+        !     ! Update trailing submatrix
+        !   call hipblasCheck(hipblasdsyr2k_m(hipblasHandle, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb, -one, A(1, i), lda, &
+        !                                       work, ldwork, one, A, lda))
 
-            k = k - nb
+        !     k = k - nb
 
-        end do
+        ! end do
 
-        ! Finish any remaining columns to get final 32x32 block
-        nb1 = k - 32 - 1
-        i = k - nb1
+        ! ! Finish any remaining columns to get final 32x32 block
+        ! nb1 = k - 64 - 1
+        ! i = k - nb1
 
-        if (nb1 > 0) then
-            ! Reduce columns i:i+nb-1 to tridiagonal form
-            call dlatrd_gpu(uplo, i + nb1 - 1, nb1, A, lda, e, tau, work, ldwork)
+        ! if (nb1 > 0) then
+        !     ! Reduce columns i:i+nb-1 to tridiagonal form
+        !     call dlatrd_gpu(uplo, i + nb1 - 1, nb1, A, lda, e, tau, work, ldwork)
 
-            ! Update trailing submatrix
-            call hipblasCheck(hipblasdsyr2k_m(hipblasHandle, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb1, -one, &
-                                              A(1, i), lda, work, ldwork, one, A, lda))
+        !     ! Update trailing submatrix
+        !     call hipblasCheck(hipblasdsyr2k_m(hipblasHandle, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb1, -one, &
+        !                                       A(1, i), lda, work, ldwork, one, A, lda))
 
-        endif
+        ! endif
 
         ! Final block
-        threads = dim3(64, 64, 1)
-        grid = dim3(1, 1, 1)
-      CALL launch_dsytd2_gpu(grid, threads, 64*64*8 + 16, c_null_ptr, lda, c_loc(A), lda, N, 1, 1, c_loc(tau), N - 1, 1, c_loc(d), &
-                               N, 1, c_loc(e), N - 1, 1, min(64, N))
+        call hipCheck(hipMemcpy(A_h,A,N*N,hipMemcpyDeviceToHost))
+        call print_matrix(A_h)
 
+        threads = dim3(16, 16, 1)
+        
+        grid = dim3(1, 1, 1)
+        CALL launch_dsytd2_gpu(grid, threads, 16*16*8*2 + 8*3, c_null_ptr, lda, c_loc(A), lda, N, 1, 1, c_loc(tau), N - 1, 1,&
+            c_loc(d), N, 1, c_loc(e), N - 1, 1, min(16, N))
+
+        call hipCheck(hipMemcpy(A_h,A,N*N,hipMemcpyDeviceToHost))
+        call print_matrix(A_h)
         ! Copy superdiagonal back into A, store diagonal in d
         ! extracted to HIP C++ file
         ! TODO(gpufort) fix arguments
-        CALL launch_krnl_2b8e8f_0_auto(0, c_null_ptr, n, c_loc(d), N, 1, c_loc(A), lda, N, 1, 1)
+        !CALL launch_krnl_2b8e8f_0_auto(0, c_null_ptr, n, c_loc(d), N, 1, c_loc(A), lda, N, 1, 1)
 
     end subroutine dsytrd_gpu_h
 
