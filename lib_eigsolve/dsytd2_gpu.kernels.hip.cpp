@@ -258,8 +258,8 @@ __global__ void dsytd2_gpu(int lda,
   extern __shared__ double s[]; 
   double *a_s = s; 
   double *a_s_1 = &s[16*16];
-  double *params = &s[32*32];
-  double taui, alpha;
+  double *params = &s[16*16*2];
+  //double alpha;
   double beta;
   double alphar;
   double xnorm;
@@ -275,9 +275,9 @@ __global__ void dsytd2_gpu(int lda,
   int stride;
 
   //printf("Hello\n");
-  alpha = params[0];
-  taui = params[1];
-  x = params[2];
+  //alpha = params[0];
+  //taui = params[1];
+  //x = params[2];
   tx = threadIdx.x + 1;
   ty = threadIdx.y + 1;
   // ! Linear id of the thread (tx,ty)
@@ -315,13 +315,13 @@ __global__ void dsytd2_gpu(int lda,
     if (tl == 1) {
       w = a_s_1[_idx_a_s_1(tl, (i + 1))];
       printf("w = %g\n",w);
-      alpha = a_s[_idx_a_s(i, (i + 1))];
-      alphar = alpha;
+      params[0] = a_s[_idx_a_s(i, (i + 1))];
+      alphar = params[0];
       xnorm = sqrt(w);
       if (xnorm == 0 /*_8*/) {
         // ! H=1
-        taui = 0. /*_8*/;
-        alpha = 1.e0;
+        params[1] = 0. /*_8*/;
+        params[0] = 1.e0;
         // ! To prevent scaling by dscal in this case
 
       } else {
@@ -343,41 +343,41 @@ __global__ void dsytd2_gpu(int lda,
                 beta = abs(w * sqrt(1.e0 + pow(z / w,2))); 
             }
         }
-        taui = (beta - alphar) / beta;
-        alpha = 1.e0 / (alphar - beta); // ! scale factor for dscal
-        printf("taui = %g, beta = %g\n",taui,beta);
+        params[1] = (beta - alphar) / beta;
+        params[0] = 1.e0 / (alphar - beta); // ! scale factor for dscal
+        printf("taui = %g, beta = %g\n",params[1],beta);
       }
     }
     __syncthreads(); // ! dscal
     if (tl < i) {
-      a_s[_idx_a_s(tl, (i + 1))] = a_s[_idx_a_s(tl, (i + 1))] * alpha;
+      a_s[_idx_a_s(tl, (i + 1))] = a_s[_idx_a_s(tl, (i + 1))] * params[0];
     }
 
     if (tl == 1) {
       if (xnorm != 0 /*_8*/) {
-        alpha = beta;
+        params[0] = beta;
       } else {
-        alpha = a_s[_idx_a_s(i, (i + 1))]; // ! reset alpha to original value
+        params[0] = a_s[_idx_a_s(i, (i + 1))]; // ! reset alpha to original value
       }
-      e[_idx_e(i)] = alpha;
+      e[_idx_e(i)] = params[0];
     }
-    printf("Check: %d %d %g\n",tx,ty,taui);
-    if (taui != 0.e0) {
+    //printf("Check: %d %d %g\n",tx,ty,params[1]);
+    if (params[1] != 0.e0) {
       a_s[_idx_a_s(i, (i + 1))] = 1.e0;
       __syncthreads();
       if (tl <= i) {
-        tau[tl] = 0.e0;
+        tau[_idx_tau(tl)] = 0.e0;
         for (int j = 1; j <= i; j += 1) {
-          tau[tl] = tau[tl] +
-                     taui * a_s[_idx_a_s(tl, j)] * a_s[_idx_a_s(j, (i + 1))];
+          tau[_idx_tau(tl)] = tau[_idx_tau(tl)] +
+                     params[1] * a_s[_idx_a_s(tl, j)] * a_s[_idx_a_s(j, (i + 1))];
         }
-        printf("tau[tl] = %g\n",tau[tl]);
+        printf("tau[%d] = %g\n",tl,tau[_idx_tau(tl)]);
       }
       __syncthreads();
 
       if ((tl <= 16)) {
         if ((tl <= i)) {
-          a_s_1[_idx_a_s_1(tl, (i + 1))] = -.5e0 * taui * tau[tl] * a_s[_idx_a_s(tl, (i + 1))];
+          a_s_1[_idx_a_s_1(tl, (i + 1))] = -.5e0 * params[1] * tau[_idx_tau(tl)] * a_s[_idx_a_s(tl, (i + 1))];
         } else {
           a_s_1[_idx_a_s_1(tl, (i + 1))] = 0. /*_8*/;
         }
@@ -394,26 +394,25 @@ __global__ void dsytd2_gpu(int lda,
       }
 
       if (tl == 1) {
-        x = a_s_1[_idx_a_s_1(tl, (i + 1))];
-        printf("x = %g\n",x);
+        params[2] = a_s_1[_idx_a_s_1(tl, (i + 1))];
+        printf("x = %g\n",params[2]);
       }
 
       if (tl <= i) {
-        tau[tl] = (tau[tl] + x * a_s[_idx_a_s(tl, (i + 1))]);
+        tau[_idx_tau(tl)] = tau[_idx_tau(tl)] + params[2] * a_s[_idx_a_s(tl, (i + 1))];
+        printf("tau[%d] = %g\n",tl,tau[_idx_tau(tl)]);
       }
 
       __syncthreads();
       if (tx <= i && ty <= i) {
-        a_s[_idx_a_s(tx, ty)] = a_s[_idx_a_s(tx, ty)] -
-                                 a_s[_idx_a_s(tx, (i + 1))] * tau[_idx_tau(ty)] -
-                                 a_s[_idx_a_s(ty, (i + 1))] * tau[_idx_tau(tx)];
+        a_s[_idx_a_s(tx, ty)] = a_s[_idx_a_s(tx, ty)] - a_s[_idx_a_s(tx, (i + 1))] * tau[_idx_tau(ty)] - a_s[_idx_a_s(ty, (i + 1))] * tau[_idx_tau(tx)];
       }
       __syncthreads(); 
     }
     if (tl == 1) {
       a_s[_idx_a_s(i, (i + 1))] = e[_idx_e(i)];
       d[_idx_d((i + 1))] = a_s[_idx_a_s((i + 1), (i + 1))];
-      tau[_idx_tau(i)] = taui;
+      tau[_idx_tau(i)] = params[1];
     }
     __syncthreads(); 
   }

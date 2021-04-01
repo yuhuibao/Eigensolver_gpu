@@ -131,11 +131,14 @@ contains
         integer                                   :: N, lda, lwork, nb, nx, ldwork, istat,nb1
         integer                                   :: i, j, k, kk
         real(8), target, dimension(1:N)           :: d
-        real(8), target, dimension(1:N - 1)         :: e
+        real(8), dimension(1:N)                   :: d_h
+        real(8), target, dimension(1:N - 1)       :: e
+        real(8), dimension(1:N - 1)               :: e_h
         real(8), target, dimension(1:lwork)       :: work
         real(8), target, dimension(1:lda, 1:N)    :: A
         real(8), dimension(1:lda, 1:N)            :: A_h
-        real(8), target, dimension(1:N - 1)         :: tau
+        real(8), target, dimension(1:N - 1)       :: tau
+        real(8), dimension(1:N - 1)               :: tau_h
 
         real(8), parameter                        :: one = 1.0_8
         type(dim3)                                :: threads, grid
@@ -194,6 +197,15 @@ contains
 
         call hipCheck(hipMemcpy(A_h,A,N*N,hipMemcpyDeviceToHost))
         call print_matrix(A_h)
+
+        call hipCheck(hipMemcpy(d_h,d,N,hipMemcpyDeviceToHost))
+        call print_vector(d_h)
+
+        call hipCheck(hipMemcpy(e_h,e,N-1,hipMemcpyDeviceToHost))
+        call print_vector(e_h)
+
+        call hipCheck(hipMemcpy(tau_h,tau,N-1,hipMemcpyDeviceToHost))
+        call print_vector(tau_h)
         ! Copy superdiagonal back into A, store diagonal in d
         ! extracted to HIP C++ file
         ! TODO(gpufort) fix arguments
