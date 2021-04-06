@@ -314,7 +314,7 @@ __global__ void dsytd2_gpu(int lda,
 
     if (tl == 1) {
       w = a_s_1[_idx_a_s_1(tl, (i + 1))];
-      printf("w = %g\n",w);
+      //printf("w = %g\n",w);
       params[0] = a_s[_idx_a_s(i, (i + 1))];
       alphar = params[0];
       xnorm = sqrt(w);
@@ -345,7 +345,7 @@ __global__ void dsytd2_gpu(int lda,
         }
         params[1] = (beta - alphar) / beta;
         params[0] = 1.e0 / (alphar - beta); // ! scale factor for dscal
-        printf("taui = %g, beta = %g\n",params[1],beta);
+        //printf("taui = %g, beta = %g\n",params[1],beta);
       }
     }
     __syncthreads(); // ! dscal
@@ -371,7 +371,7 @@ __global__ void dsytd2_gpu(int lda,
           tau[_idx_tau(tl)] = tau[_idx_tau(tl)] +
                      params[1] * a_s[_idx_a_s(tl, j)] * a_s[_idx_a_s(j, (i + 1))];
         }
-        printf("tau[%d] = %g\n",tl,tau[_idx_tau(tl)]);
+        //printf("tau[%d] = %g\n",tl,tau[_idx_tau(tl)]);
       }
       __syncthreads();
 
@@ -395,12 +395,12 @@ __global__ void dsytd2_gpu(int lda,
 
       if (tl == 1) {
         params[2] = a_s_1[_idx_a_s_1(tl, (i + 1))];
-        printf("x = %g\n",params[2]);
+        //printf("x = %g\n",params[2]);
       }
 
       if (tl <= i) {
         tau[_idx_tau(tl)] = tau[_idx_tau(tl)] + params[2] * a_s[_idx_a_s(tl, (i + 1))];
-        printf("tau[%d] = %g\n",tl,tau[_idx_tau(tl)]);
+        //printf("tau[%d] = %g\n",tl,tau[_idx_tau(tl)]);
       }
 
       __syncthreads();

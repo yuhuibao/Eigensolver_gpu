@@ -5,6 +5,6 @@ cd lib_eigsolve
 make -f mk
 cd ../test_hipified
 make clean
-make 
-./test_dsytrd
+make
+./test_dsygvdx mat1.dat mat2.dat
 cd ..

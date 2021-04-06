@@ -78,21 +78,21 @@ contains
         indwk3 = indwk2 + (nb2)*(nb2)
 
         !JR Note: ADD SCALING HERE IF DESIRED. Not scaling for now.
-        call hipCheck(hipMemcpy(A_h, A, lda*N, hipMemcpyDeviceToHost))
-        call print_matrix(A_h)
         ! Call DSYTRD to reduce A to tridiagonal form
         call dsytrd_gpu_h('U', N, A, lda, w, work(inde), work(indtau), work(indwrk), llwork, nb1)
-        
+        call hipCheck(hipMemcpy(A_h, A, lda*N, hipMemcpyDeviceToHost))
+        call print_matrix(A_h)
+        call hipCheck(hipMemcpy(work_h(indtau),work(indtau),N-1, hipMemcpyDeviceToHost))
+        call print_vector(work_h(indtau:indtau+N-2))
 
         ! Copy diagonal and superdiagonal to CPU
         !w_h(1:N) = w(1:N)
-        call hipCheck(hipMemcpy(w, w_h, N, hipMemcpyDeviceToHost))
+        call hipCheck(hipMemcpy(w_h, w, N, hipMemcpyDeviceToHost))
 
-        !work_h(inde:inde+N-1) = work(inde:inde+N-1)
-        call hipCheck(hipMemcpy(work(inde:inde + N - 1), work_h(inde:inde + N - 1), N, hipMemcpyDeviceToHost))
-        call print_vector(w_h)
-        call print_vector(work_h)
-        stop
+        !work_h(inde:inde+N-1-1) = work(inde:inde+N-1-1)
+        call hipCheck(hipMemcpy(work_h(inde:inde + N - 1 -1), work(inde:inde + N - 1-1), N, hipMemcpyDeviceToHost))
+        ! call print_vector(w_h)
+        ! call print_vector(work_h(inde:inde + N - 1 - 1))
 
         ! Restore lower triangular of A (works if called from zhegvd only!)
         ! extracted to HIP C++ file
@@ -107,8 +107,9 @@ contains
             info = -1
             return
         endif
+        print*,"after dstedc:"
         call print_matrix(Z_h)
-        call print_vector(w_h)
+        !call print_vector(w_h)
         ! Copy eigenvectors and eigenvalues to GPU
         call hipCheck(hipMemcpy2D(Z, ldz, Z_h, ldz_h, N, NZ, hipMemcpyHostToDevice))
         !w(1:N) = w_h(1:N)
@@ -129,6 +130,9 @@ contains
             ! Apply reflector to eigenvectors in stream 2
             call dlarfb_gpu(mi, NZ, ib, A(1, 2 + i - 1), lda, work(indwrk), ldt, Z, ldz, work(indwk3), N, work(indwk2), ldt)
         end do
+        print*,"end iteration"
+        Z_h=Z
+        call print_matrix(Z_h)
 
     end subroutine dsyevd_gpu_h
 

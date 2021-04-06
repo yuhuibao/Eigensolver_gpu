@@ -416,6 +416,7 @@ __global__ void finish_t_block_kernel(int n,
   // ! (i,j) --> ((i-1)*i/2 + j)
   // ! TODO could not parse: #define ij2tri(i,j) (ishft((i-1)*i,-1) + j)
   __shared__ double t_s[2080];
+  printf("Hello\n");
   #define IJ2TRI(i, j) ((((i - 1) * i) >> 1) + j)
   int tid;
   int tx;

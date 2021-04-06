@@ -186,8 +186,8 @@ contains
         ! endif
 
         ! Final block
-        call hipCheck(hipMemcpy(A_h,A,N*N,hipMemcpyDeviceToHost))
-        call print_matrix(A_h)
+        ! call hipCheck(hipMemcpy(A_h,A,N*N,hipMemcpyDeviceToHost))
+        ! call print_matrix(A_h)
 
         threads = dim3(16, 16, 1)
         
@@ -195,17 +195,17 @@ contains
         CALL launch_dsytd2_gpu(grid, threads, 16*16*8*2 + 8*3, c_null_ptr, lda, c_loc(A), lda, N, 1, 1, c_loc(tau), N - 1, 1,&
             c_loc(d), N, 1, c_loc(e), N - 1, 1, min(16, N))
 
-        call hipCheck(hipMemcpy(A_h,A,N*N,hipMemcpyDeviceToHost))
-        call print_matrix(A_h)
+        ! call hipCheck(hipMemcpy(A_h,A,N*N,hipMemcpyDeviceToHost))
+        ! call print_matrix(A_h)
 
-        call hipCheck(hipMemcpy(d_h,d,N,hipMemcpyDeviceToHost))
-        call print_vector(d_h)
+        ! call hipCheck(hipMemcpy(d_h,d,N,hipMemcpyDeviceToHost))
+        ! call print_vector(d_h)
 
-        call hipCheck(hipMemcpy(e_h,e,N-1,hipMemcpyDeviceToHost))
-        call print_vector(e_h)
+        ! call hipCheck(hipMemcpy(e_h,e,N-1,hipMemcpyDeviceToHost))
+        ! call print_vector(e_h)
 
-        call hipCheck(hipMemcpy(tau_h,tau,N-1,hipMemcpyDeviceToHost))
-        call print_vector(tau_h)
+        ! call hipCheck(hipMemcpy(tau_h,tau,N-1,hipMemcpyDeviceToHost))
+        ! call print_vector(tau_h)
         ! Copy superdiagonal back into A, store diagonal in d
         ! extracted to HIP C++ file
         ! TODO(gpufort) fix arguments

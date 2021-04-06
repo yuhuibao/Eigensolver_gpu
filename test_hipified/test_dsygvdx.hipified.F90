@@ -120,7 +120,9 @@ program main
             read(14,*)Bref(1:n,1:n)
             close(13)
             close(14)
+            print*,"Aref"
             call print_matrix(Aref)
+            print*,"Bref"
             call print_matrix(Bref)
         
           else
@@ -143,9 +145,10 @@ program main
     call hipCheck(hipMemcpy(B2_d, Bref, lda*N, hipMemcpyHostToDevice))
 
     call hipCheck(hipHostMalloc(Z2, lda,N,0))
+    Z2 = Aref
 
     call hipCheck(hipMalloc(Z2_d, lda,N))
-    call hipCheck(hipMemset(c_loc(Z2_d), 0, lda*N*8_8))
+    call hipCheck(hipMemcpy(Z2_d, Z2, lda*N, hipMemcpyHostToDevice))
 
     call hipCheck(hipHostMalloc(w1, N,0))
     call hipCheck(hipHostMalloc(w2, N,0))

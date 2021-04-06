@@ -122,7 +122,8 @@ contains
         m = iu - il + 1 ! Number of eigenvalues/vectors to compute
 
         if (initialized == 0) call init_eigsolve_gpu
-
+        call hipCheck(hipMemcpy(z_h, z, ldz*N, hipMemcpyDeviceToHost))
+        call print_matrix(z_h)
         ! Compute cholesky factorization of B
         ! 'L':only lower triangular part of B is processed, and replaced by lower triangular Cholesky factor L
         ! 'U':only upper triangular part of B is processed, and replaced by upper triangular Cholesky factor U
@@ -135,20 +136,22 @@ contains
             info = -1
             return
         endif
-        call hipCheck(hipMemcpy(B_h, B, ldb*N, hipMemcpyDeviceToHost))
-        call print_matrix(B_h)
+        ! call hipCheck(hipMemcpy(B_h, B, ldb*N, hipMemcpyDeviceToHost))
+        ! call print_matrix(B_h)
         ! Store lower triangular part of A in Z
         ! extracted to HIP C++ file
         ! TODO(gpufort) fix arguments
         CALL launch_krnl_959801_0_auto(0, stream1, c_loc(z), ldz, N, 1, 1, n, c_loc(a), lda, N, 1, 1)
-        ! call hipCheck(hipMemcpy(z_h, z, ldb*N, hipMemcpyDeviceToHost))
-        ! call print_matrix(z_h)
+        
 
         ! Reduce to standard eigenproblem
         nb = 448
         call dsygst_gpu_h(1, 'U', N, A, lda, B, ldb, nb)
         call hipCheck(hipMemcpy(A_h, A, lda*N, hipMemcpyDeviceToHost))
+        print*, "before evd A and Z"
         call print_matrix(A_h)
+        call hipCheck(hipMemcpy(z_h, z, ldz*N, hipMemcpyDeviceToHost))
+        call print_matrix(z_h)
 
         ! Tridiagonalize and compute eigenvalues/vectors
         call dsyevd_gpu_h('V', 'U', il, iu, N, A, A_h, lda, Z, ldz, w, work, lwork, &

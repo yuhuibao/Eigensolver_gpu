@@ -26,7 +26,7 @@ dsyevd_gpu_kernels.o: dsyevd_gpu.kernels.hip.cpp
 
 dsytrd_gpu_kernels.o: dsytrd_gpu.kernels.hip.cpp
 	$(CXX) -fno-gpu-rdc -fPIC -c $^ -o $@
-dsytrd_gpu.F90.hipified.o: dsytrd_gpu.kernels.f08 dsytrd_gpu.F90.hipified.F90 eigsolve_vars.o
+dsytrd_gpu.F90.hipified.o: dsytrd_gpu.kernels.f08 dsytrd_gpu.F90.hipified.F90 eigsolve_vars.o utils.o
 	$(FC) -I$(MODULES_DIR)  -c dsytrd_gpu.kernels.f08 dsytrd_gpu.F90.hipified.F90
 
 dsytd2_gpu_kernels.o: dsytd2_gpu.kernels.hip.cpp
