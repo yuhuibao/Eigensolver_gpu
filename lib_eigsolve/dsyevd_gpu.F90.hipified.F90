@@ -26,7 +26,7 @@ module dsyevd_gpu
     use hipfort
     use iso_c_binding
     use hipfort_hipblas
-
+    use utils
     implicit none
 
 contains
@@ -36,7 +36,6 @@ contains
                             work_h, lwork_h, iwork_h, liwork_h, Z_h, ldz_h, w_h, info)
         use dsyevd_gpu_kernels
         use dsytrd_gpu
-        use utils
         use eigsolve_vars
         implicit none
         character                                   :: uplo, jobz
@@ -126,6 +125,7 @@ contains
 
             ! Form block reflector T in stream 1
             call dlarft_gpu(i + ib - 1, ib, A(1, 2 + i - 1), lda, work(indtau + i - 1), work(indwrk), ldt, work(indwk2), ldt)
+
             mi = i + ib - 1
             ! Apply reflector to eigenvectors in stream 2
             call dlarfb_gpu(mi, NZ, ib, A(1, 2 + i - 1), lda, work(indwrk), ldt, Z, ldz, work(indwk3), N, work(indwk2), ldt)
@@ -147,6 +147,7 @@ contains
         real(8), target, dimension(ldv, K)    :: V
         real(8), target, dimension(K)         :: tau
         real(8), target, dimension(ldt, K)    :: T
+        real(8), dimension(ldt, K)            :: T_h
         real(8), target, dimension(ldw, K)    :: W
 
         integer                               :: i, j, istat1
@@ -166,9 +167,12 @@ contains
         ! Form preliminary T matrix
         call hipblasCheck(hipblasdsyrk(hipblasHandle, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_T, K, N, 1.0_8, V, ldv, 0.0_8, T, ldt))
 
+        call hipCheck(hipMemcpy(T_h,T,ldt*K,hipMemcpyDeviceToHost))
+        call print_matrix(T_h)
+
         ! Finish forming T
-        threads = dim3(64, 16, 1)
-        CALL launch_finish_t_block_kernel(dim3(1, 1, 1), threads, 0, stream1, n, ldt, c_loc(T), ldv, K, 1, 1, c_loc(tau), K, 1)
+        threads = dim3(16, 16, 1)
+        CALL launch_finish_t_block_kernel(dim3(1, 1, 1), threads, 2080*8, stream1, n, ldt, c_loc(T), ldv, K, 1, 1, c_loc(tau), K, 1)
     end subroutine dlarft_gpu
 
     subroutine dlarfb_gpu(M, N, K, V, ldv, T, ldt, C, ldc, work, ldwork, W, ldw)
