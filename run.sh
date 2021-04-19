@@ -7,5 +7,5 @@ cd ../test_hipified
 make clean
 make
 #./test_dsygvdx mat1.dat mat2.dat
-./test_dsygvdx 5
+./test_dsygvdx 16
 cd ..

@@ -449,12 +449,12 @@ __global__ void finish_t_block_kernel(int n,
  //printf("tx: %d, ty: %d\n",tx,ty); 
   __syncthreads(); 
   
-  if (tid == 1){
-    for (i = 0;i<=6;i++){
-      printf("%g ",t_s[i]);
-    }
-  }
-  __syncthreads(); 
+  // if (tid == 1){
+  //   for (i = 0;i<=6;i++){
+  //     printf("%g ",t_s[i]);
+  //   }
+  // }
+  // __syncthreads(); 
 
   // ! Perform column by column update by first thread column
   for (int i = n -1; i >= 1; i--) {

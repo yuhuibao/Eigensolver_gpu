@@ -56,6 +56,7 @@ program main
     use funcs
     use hipfort_check
     use utils
+    use compare_utils
     implicit none
     integer(c_int), parameter :: bytes_per_element = 8 !double precision
     integer                                         :: N, M, i, j, info, lda, istat
@@ -212,9 +213,15 @@ program main
   call dsygvdx_gpu_h(N, A2_d,A2, lda, B2_d, B2, lda, Z2_d, lda, il, iu, w2_d, work_d, lwork_d, &
                      work, lwork, iwork, liwork, Z2, lda, w2, istat)
   te = wallclock()
+
+  print*, "evalues/evector accuracy: (compared to CPU results)",iu
+  call compare(w1, w2, iu)
+  call compare(A1, Z2, N, iu)
+  print*
+
   print *, "Time for CUSTOM dsygvd/x = ", (te - ts)*1000.0
   if (istat /= 0) write (*, *) 'dsygvdx_gpu failed'
 
-  call print_matrix(A1)
-  call print_matrix(Z2)
+  ! call print_matrix(A1)
+  ! call print_matrix(Z2)
 end program

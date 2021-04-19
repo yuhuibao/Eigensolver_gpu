@@ -80,9 +80,9 @@ contains
         ! Call DSYTRD to reduce A to tridiagonal form
         call dsytrd_gpu_h('U', N, A, lda, w, work(inde), work(indtau), work(indwrk), llwork, nb1)
         call hipCheck(hipMemcpy(A_h, A, lda*N, hipMemcpyDeviceToHost))
-        call print_matrix(A_h)
+        !call print_matrix(A_h)
         call hipCheck(hipMemcpy(work_h(indtau),work(indtau),N-1, hipMemcpyDeviceToHost))
-        call print_vector(work_h(indtau:indtau+N-2))
+        !call print_vector(work_h(indtau:indtau+N-2))
 
         ! Copy diagonal and superdiagonal to CPU
         !w_h(1:N) = w(1:N)
@@ -106,8 +106,8 @@ contains
             info = -1
             return
         endif
-        print*,"after dstedc:"
-        call print_matrix(Z_h)
+        ! print*,"after dstedc:"
+        ! call print_matrix(Z_h)
         !call print_vector(w_h)
         ! Copy eigenvectors and eigenvalues to GPU
         call hipCheck(hipMemcpy2D(Z, ldz, Z_h, ldz_h, N, NZ, hipMemcpyHostToDevice))
@@ -130,9 +130,9 @@ contains
             ! Apply reflector to eigenvectors in stream 2
             call dlarfb_gpu(mi, NZ, ib, A(1, 2 + i - 1), lda, work(indwrk), ldt, Z, ldz, work(indwk3), N, work(indwk2), ldt)
         end do
-        print*,"end iteration"
-        call hipCheck(hipMemcpy(Z_h, Z, ldz*N, hipMemcpyDeviceToHost))
-        call print_matrix(Z_h)
+        ! print*,"end iteration"
+        ! call hipCheck(hipMemcpy(Z_h, Z, ldz*N, hipMemcpyDeviceToHost))
+        ! call print_matrix(Z_h)
     end subroutine dsyevd_gpu_h
 
     subroutine dlarft_gpu(N, K, V, ldv, tau, T, ldt, W, ldw)
@@ -166,14 +166,14 @@ contains
         ! Form preliminary T matrix
         call hipblasCheck(hipblasdsyrk(hipblasHandle, HIPBLAS_FILL_modE_LOWER, HIPBLAS_OP_T, K, N, 1.0_8, V, ldv, 0.0_8, T, ldt))
 
-        call hipCheck(hipMemcpy(T_h,T,ldt*K,hipMemcpyDeviceToHost))
-        call print_matrix(T_h)
+        ! call hipCheck(hipMemcpy(T_h,T,ldt*K,hipMemcpyDeviceToHost))
+        ! call print_matrix(T_h)
 
         ! Finish forming T
         threads = dim3(64, 4, 1)
         CALL launch_finish_t_block_kernel(dim3(1, 1, 1), threads, 1040*8, stream1, K, ldt, c_loc(T), ldt, K, 1, 1, c_loc(tau), K, 1)
-        call hipCheck(hipMemcpy(T_h,T,ldt*K,hipMemcpyDeviceToHost))
-        call print_matrix(T_h)
+        ! call hipCheck(hipMemcpy(T_h,T,ldt*K,hipMemcpyDeviceToHost))
+        ! call print_matrix(T_h)
     end subroutine dlarft_gpu
 
     subroutine dlarfb_gpu(M, N, K, V, ldv, T, ldt, C, ldc, work, ldwork, W, ldw)
