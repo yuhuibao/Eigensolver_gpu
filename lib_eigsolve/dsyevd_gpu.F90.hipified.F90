@@ -131,9 +131,8 @@ contains
             call dlarfb_gpu(mi, NZ, ib, A(1, 2 + i - 1), lda, work(indwrk), ldt, Z, ldz, work(indwk3), N, work(indwk2), ldt)
         end do
         print*,"end iteration"
-        Z_h=Z
+        call hipCheck(hipMemcpy(Z_h, Z, ldz*N, hipMemcpyDeviceToHost))
         call print_matrix(Z_h)
-
     end subroutine dsyevd_gpu_h
 
     subroutine dlarft_gpu(N, K, V, ldv, tau, T, ldt, W, ldw)
@@ -171,8 +170,10 @@ contains
         call print_matrix(T_h)
 
         ! Finish forming T
-        threads = dim3(16, 16, 1)
-        CALL launch_finish_t_block_kernel(dim3(1, 1, 1), threads, 2080*8, stream1, n, ldt, c_loc(T), ldv, K, 1, 1, c_loc(tau), K, 1)
+        threads = dim3(64, 4, 1)
+        CALL launch_finish_t_block_kernel(dim3(1, 1, 1), threads, 1040*8, stream1, K, ldt, c_loc(T), ldt, K, 1, 1, c_loc(tau), K, 1)
+        call hipCheck(hipMemcpy(T_h,T,ldt*K,hipMemcpyDeviceToHost))
+        call print_matrix(T_h)
     end subroutine dlarft_gpu
 
     subroutine dlarfb_gpu(M, N, K, V, ldv, T, ldt, C, ldc, work, ldwork, W, ldw)

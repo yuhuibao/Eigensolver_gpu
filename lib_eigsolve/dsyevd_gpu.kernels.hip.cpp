@@ -411,6 +411,7 @@ __global__ void finish_t_block_kernel(int n,
 #undef _idx_t_s
 #define _idx_t_s(a) (a - 1)
 
+  //printf("Hello!!!%d!!!!!!!!\n",n);
   // ! T_s contains only lower triangular elements of T in linear array, by row
   // ! TODO could not parse:        real(8), dimension(2080), shared   :: t_s
   // ! (i,j) --> ((i-1)*i/2 + j)
@@ -423,44 +424,60 @@ __global__ void finish_t_block_kernel(int n,
   int i;
   int j;
   int k;
-  int diag;
   double cv;
   tx = threadIdx.x + 1;
   ty = threadIdx.y + 1;
-  tid = ((ty - 1) * blockDim.x + tx);
+  tid = (ty - 1) * blockDim.x + tx;
   // ! Linear thread id
   // ! Load T into shared memory
-  if ((tx <= n)) {
+  //printf("shared mem 0: %g\n",t_s[0]);
+  
+  if (tx <= n) {
+    //printf("tx: %d, ty: %d\n",tx,ty);
     for (int j = ty; j <= n; j += blockDim.y) {
+      //printf("tx: %d, ty: %d\n",tx,ty);
       cv = tau[_idx_tau(j)];
       if ((tx > j)) {
-        t_s[_idx_t_s(IJ2TRI(tx, j))] = (-cv * t[_idx_t(tx, j)]);
-
+        t_s[_idx_t_s(IJ2TRI(tx, j))] = -cv * t[_idx_t(tx, j)];
+      
       } else if (tx == j) {
         t_s[_idx_t_s(IJ2TRI(tx, j))] = cv;
       }
     }
   }
-  __syncthreads(); // ! Perform column by column update by first thread column
-      for (int i = (n - 1); i <= 1; i += -1) {
+  
+ //printf("tx: %d, ty: %d\n",tx,ty); 
+  __syncthreads(); 
+  
+  if (tid == 1){
+    for (i = 0;i<=6;i++){
+      printf("%g ",t_s[i]);
+    }
+  }
+  __syncthreads(); 
+
+  // ! Perform column by column update by first thread column
+  for (int i = n -1; i >= 1; i--) {
+    //printf("In For loop %d\n",i);
     if (ty == 1) {
-      if ((tx > i & tx <= n)) {
+      if (tx > i && tx <= n) {
         cv = 0.0e0;
-        for (int j = (i + 1); j <= tx; j += 1) {
+        for (int j = i + 1; j <= tx; j += 1) {
           cv = cv + t_s[_idx_t_s(IJ2TRI(j, i))] * t_s[_idx_t_s(IJ2TRI(tx, j))];
         }
       }
     }
     __syncthreads();
-    if ((ty == 1 & tx > i & tx <= n)) {
+    if (ty == 1 && tx > i && tx <= n) {
         t_s[_idx_t_s(IJ2TRI(tx, i))] = cv;
     }
     __syncthreads();
   }
+  //printf("after update tx i\n");
   __syncthreads(); // ! Write T_s to global
-      if ((tx <= n)) {
+  if (tx <= n) {
     for (int j = ty; j <= n; j += blockDim.y) {
-      if ((tx >= j)) {
+      if (tx >= j) {
         t[_idx_t(tx, j)] = t_s[_idx_t_s(IJ2TRI(tx, j))];
       }
     }
@@ -482,5 +499,7 @@ extern "C" void launch_finish_t_block_kernel(dim3 *grid,
                                              const int tau_n1,
                                              const int tau_lb1) {
   hipLaunchKernelGGL((finish_t_block_kernel), *grid, *block, sharedMem, stream, n, ldt, t, t_n1, t_n2, t_lb1, t_lb2, tau, tau_n1, tau_lb1);
+  // hipDeviceSynchronize();
+  // exit(0);
 }
 // END finish_t_block_kernel

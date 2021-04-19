@@ -78,6 +78,7 @@ contains
         use hipfort_rocblas
         use hipfort_rocsolver, only: rocsolver_dpotrf
         use hipfort_check
+        use hipfort_hipblas
         implicit none
         integer                                     :: N, m, lda, ldb, ldz, il, iu, ldz_h, info, nb
         integer                                     :: lwork_h, liwork_h, lwork, istat
@@ -123,7 +124,7 @@ contains
 
         if (initialized == 0) call init_eigsolve_gpu
         call hipCheck(hipMemcpy(z_h, z, ldz*N, hipMemcpyDeviceToHost))
-        call print_matrix(z_h)
+        !call print_matrix(z_h)
         ! Compute cholesky factorization of B
         ! 'L':only lower triangular part of B is processed, and replaced by lower triangular Cholesky factor L
         ! 'U':only upper triangular part of B is processed, and replaced by upper triangular Cholesky factor U
@@ -149,17 +150,17 @@ contains
         call dsygst_gpu_h(1, 'U', N, A, lda, B, ldb, nb)
         call hipCheck(hipMemcpy(A_h, A, lda*N, hipMemcpyDeviceToHost))
         print*, "before evd A and Z"
-        call print_matrix(A_h)
+        !call print_matrix(A_h)
         call hipCheck(hipMemcpy(z_h, z, ldz*N, hipMemcpyDeviceToHost))
-        call print_matrix(z_h)
+        !call print_matrix(z_h)
 
         ! Tridiagonalize and compute eigenvalues/vectors
         call dsyevd_gpu_h('V', 'U', il, iu, N, A, A_h, lda, Z, ldz, w, work, lwork, &
                           work_h, lwork_h, iwork_h, liwork_h, Z_h, ldz_h, w_h, info)
-
+        !call print_vector(w_h)
         ! Triangle solve to get eigenvectors for original general eigenproblem
-        istat = hipblasDtrsm(hipblasHandle, HIPBLAS_SIDE_LEFT, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, HIPBLAS_DIAG_NON_UNIT, N, &
-                             iu - il + 1, one, c_loc(B), ldb, c_loc(Z), ldz)
+        call hipblasCheck(hipblasDtrsm(hipblasHandle, HIPBLAS_SIDE_LEFT, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, &
+                            HIPBLAS_DIAG_NON_UNIT, N, iu - il + 1, one, B, ldb, Z, ldz))
 
         ! Copy final eigenvectors to host
         if (.not. (skip_host_copy)) then
@@ -171,6 +172,7 @@ contains
                 return
             endif
         endif
+        !stop
 
     end subroutine dsygvdx_gpu_h
 
