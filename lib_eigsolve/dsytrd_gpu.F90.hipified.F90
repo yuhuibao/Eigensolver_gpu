@@ -157,7 +157,7 @@ contains
 
         ! call hipblasCheck(hipblasSetStream(hipblasHandle, stream1))
 
-        ! kk = N - ((N - 64)/nb)*nb
+        ! kk = N - ((N - 16)/nb)*nb
         ! k = N + 1
         ! do i = N - nb + 1, kk + 1, -nb
         !     ! Reduce columns i:i+nb-1 to tridiagonal form
@@ -171,8 +171,8 @@ contains
 
         ! end do
 
-        ! ! Finish any remaining columns to get final 32x32 block
-        ! nb1 = k - 64 - 1
+        ! ! Finish any remaining columns to get final 16x16 block
+        ! nb1 = k - 16 - 1
         ! i = k - nb1
 
         ! if (nb1 > 0) then

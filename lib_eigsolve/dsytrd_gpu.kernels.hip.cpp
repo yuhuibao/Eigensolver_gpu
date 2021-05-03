@@ -268,7 +268,7 @@ extern "C" void launch_krnl_37a79c_1_auto(const int sharedMem,
 
 */
 
-__global__ void dlarfg_kernel(int n, double tau, double e, double *x,
+__global__ void dlarfg_kernel(int n, double *tau, double *e, double *x,
                               const int x_n1, const int x_lb1) {
 #undef _idx_x
 #define _idx_x(a) ((a - (x_lb1)))
@@ -293,7 +293,7 @@ __global__ void dlarfg_kernel(int n, double tau, double e, double *x,
   double *xnorm = s;
   double *alpha_s = s + 1*8;
   tid = threadIdx.x + 1;
-  laneid = tid & 31;
+  laneid = tid & 63;
   if (tid == 1) {
     *alpha_s = x[_idx_x(n)];
     *xnorm = 0.0 /*_8*/;
@@ -306,35 +306,37 @@ __global__ void dlarfg_kernel(int n, double tau, double e, double *x,
   i = tid;
   for (int j = 1; j <= nb; j += 1) {
     // ! All threads perform their product, zero if out of bounds
-    if ((i <= (n - 1))) {
+    if (i <= (n - 1)) {
       rv1 = x[_idx_x(i)];
-      rv1 = (rv1 * rv1);
+      rv1 = rv1 * rv1;
 
     } else {
       rv1 = 0.0 /*_8*/;
     }
-    rsum = (rsum + rv1);
-    i = (i + blockDim.x);
+    rsum = rsum + rv1;
+    i = i + blockDim.x;
 
   } // ! Partial sum within warps using shuffle
   rv1 = rsum;
   rv2 = __shfl_down(rv1, 1);
-  rv1 = (rv1 + rv2);
+  rv1 = rv1 + rv2;
   rv2 = __shfl_down(rv1, 2);
-  rv1 = (rv1 + rv2);
+  rv1 = rv1 + rv2;
   rv2 = __shfl_down(rv1, 4);
-  rv1 = (rv1 + rv2);
+  rv1 = rv1 + rv2;
   rv2 = __shfl_down(rv1, 8);
-  rv1 = (rv1 + rv2);
+  rv1 = rv1 + rv2;
   rv2 = __shfl_down(rv1, 16);
-  rv1 = (rv1 + rv2);
+  rv1 = rv1 + rv2;
+  rv2 = __shfl_down(rv1, 32);
+  rv1 = rv1 + rv2;
   if (laneid == 1) {
     istat = atomicAdd(xnorm, rv1);
   }
   __syncthreads();
   if (*xnorm == 0.0 /*_8*/) {
     if (tid == 0) {
-      tau = 0.0 /*_8*/;
+      *tau = 0.0 /*_8*/;
     }
   } else {
     if (tid == 1) {
@@ -359,17 +361,15 @@ __global__ void dlarfg_kernel(int n, double tau, double e, double *x,
           beta = abs(scal * sqrt(pow((1.0e0 + (scal2 / scal)), 2)));
         }
       }
-      tau = ((beta - alphar) / beta);
-      e = beta;
-      // ! store beta in e vector
-      *alpha_s = (1.e0 / (alphar - beta));
-      // !scaling factor for dscal
+      *tau = (beta - alphar) / beta;
+      *e = beta; // ! store beta in e vector
+      *alpha_s = 1.e0 / (alphar - beta); // !scaling factor for dscal
     }
 
     __syncthreads();
     for (int i = tid; i <= n; i += blockDim.x) {
-      if ((i <= (n - 1))) {
-        x[_idx_x(i)] = (*alpha_s * x[_idx_x(i)]);
+      if (i <= (n - 1)) {
+        x[_idx_x(i)] = (*alpha_s) * x[_idx_x(i)];
 
       } else if (i == n) {
         x[_idx_x(i)] = 1.0 /*_8*/;
@@ -383,8 +383,8 @@ extern "C" void launch_dlarfg_kernel(dim3 *grid, dim3 *block,
                                      const int sharedMem, hipStream_t stream,
                                      int n, double* tau, double *e, double *x,
                                      const int x_n1, const int x_lb1) {
-  hipLaunchKernelGGL((dlarfg_kernel), *grid, *block, sharedMem, stream, n, *tau,
-                     *e, x, x_n1, x_lb1);
+  hipLaunchKernelGGL((dlarfg_kernel), *grid, *block, sharedMem, stream, n, tau,
+                     e, x, x_n1, x_lb1);
 }
 // END dlarfg_kernel
 
