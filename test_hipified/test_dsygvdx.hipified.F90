@@ -90,8 +90,9 @@ program main
 
         ! Create random positive-definite hermetian matrices on host
         call create_random_symmetric_pd(Aref, N)
-        !call print_matrix(Aref)
+        call print_matrix(Aref)
         call create_random_symmetric_pd(Bref, N)
+        call print_matrix(Bref)
 
     
     elseif (i ==2) then

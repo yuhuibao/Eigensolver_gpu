@@ -149,8 +149,8 @@ contains
         nb = 448
         call dsygst_gpu_h(1, 'U', N, A, lda, B, ldb, nb)
         call hipCheck(hipMemcpy(A_h, A, lda*N, hipMemcpyDeviceToHost))
-        !print*, "before evd A and Z"
-        !call print_matrix(A_h)
+        print*, "before evd A and Z"
+        call print_matrix(A_h)
         call hipCheck(hipMemcpy(z_h, z, ldz*N, hipMemcpyDeviceToHost))
         !call print_matrix(z_h)
 

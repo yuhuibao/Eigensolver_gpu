@@ -253,6 +253,8 @@ contains
             print*,"firt iter"
             iw = nb
             ! Generate elementary reflector H(i) to annihilate A(1:i-2, i)
+            call hipCheck(hipMemcpy(A_h, A, N*N,hipMemcpyDeviceToHost))
+            call print_vector(A_h(:,N))
             CALL launch_dlarfg_kernel_m(dim3(1, 1, 1), threads, 16, c_null_ptr, N - 1, tau(N - 1), e(N - 1), A(1, N))
             call hipCheck(hipMemcpy(A_h, A, N*N,hipMemcpyDeviceToHost))
             call print_vector(A_h(:,N))
