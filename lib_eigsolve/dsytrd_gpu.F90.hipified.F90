@@ -118,6 +118,7 @@ module dsytrd_gpu
     use hipfort
     use iso_c_binding
     use hipfort_hipblas
+    use utils
 
 contains
 
@@ -153,23 +154,24 @@ contains
             return
         endif
 
-        ! ldwork = N
+        ldwork = N
 
-        ! call hipblasCheck(hipblasSetStream(hipblasHandle, stream1))
+        call hipblasCheck(hipblasSetStream(hipblasHandle, stream1))
 
-        ! kk = N - ((N - 16)/nb)*nb
-        ! k = N + 1
-        ! do i = N - nb + 1, kk + 1, -nb
-        !     ! Reduce columns i:i+nb-1 to tridiagonal form
-        !     call dlatrd_gpu(uplo, i + nb - 1, nb, A, lda, e, tau, work, ldwork)
+        kk = N - ((N - 16)/nb)*nb
+        print*,"kk = ",kk, "N = ",N
+        k = N + 1
+        do i = N - nb + 1, kk + 1, -nb
+            ! Reduce columns i:i+nb-1 to tridiagonal form
+            call dlatrd_gpu(uplo, i + nb - 1, nb, A, lda, e, tau, work, ldwork)
 
-        !     ! Update trailing submatrix
-        !   call hipblasCheck(hipblasdsyr2k_m(hipblasHandle, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb, -one, A(1, i), lda, &
-        !                                       work, ldwork, one, A, lda))
+            ! Update trailing submatrix
+          call hipblasCheck(hipblasdsyr2k_m(hipblasHandle, HIPBLAS_FILL_MODE_UPPER, HIPBLAS_OP_N, (i - 1), nb, -one, A(1, i), lda, &
+                                              work, ldwork, one, A, lda))
 
-        !     k = k - nb
+            k = k - nb
 
-        ! end do
+        end do
 
         ! ! Finish any remaining columns to get final 16x16 block
         ! nb1 = k - 16 - 1
@@ -224,9 +226,13 @@ contains
         integer                                    :: i, j, k, iw
         type(dim3)                                    :: threads
         real(8), target, dimension(1:lda, 1:N)     :: A
+        real(8), dimension(1:lda, 1:N)             :: A_h
         real(8), target, dimension(1:ldw, 1:nb)    :: W
         real(8), target, dimension(N - 1)            :: tau
         real(8), target, dimension(N - 1)            :: e
+        real(8), dimension(N - 1)                  :: tau_h
+        real(8),  dimension(N - 1)                 :: e_h
+
 
         real(8), parameter                         :: one = 1.0d0, zero = 0.0d0, half = 0.5d0
 
@@ -244,9 +250,16 @@ contains
 
         ! Complete first iteration outside loop
         if (N > 1) then
+            print*,"firt iter"
             iw = nb
             ! Generate elementary reflector H(i) to annihilate A(1:i-2, i)
             CALL launch_dlarfg_kernel_m(dim3(1, 1, 1), threads, 16, c_null_ptr, N - 1, tau(N - 1), e(N - 1), A(1, N))
+            call hipCheck(hipMemcpy(A_h, A, N*N,hipMemcpyDeviceToHost))
+            call print_vector(A_h(:,N))
+            call hipCheck(hipMemcpy(e_h, e, N-1, hipMemcpyDeviceToHost))
+            call hipCheck(hipMemcpy(tau_h, tau, N-1, hipMemcpyDeviceToHost))
+            print*,e_h(N-1),tau_h(N-1)
+            stop
             ! extracted to HIP C++ file
             ! TODO(gpufort) fix arguments
             CALL launch_krnl_37a79c_1_auto(0, c_null_ptr, c_loc(w), ldw, nb, 1, 1, n, iw)

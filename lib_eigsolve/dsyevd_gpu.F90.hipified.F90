@@ -63,8 +63,8 @@ contains
             return
         endif
 
-        nb1 = 64 ! Blocksize for tridiagonalization
-        nb2 = min(64, N) ! Blocksize for rotation procedure, fixed at 64
+        nb1 = 16 ! Blocksize for tridiagonalization
+        nb2 = min(16, N) ! Blocksize for rotation procedure, fixed at 64
         ldt = nb2
         NZ = iu - il + 1
 
