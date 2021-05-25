@@ -1,31 +1,50 @@
 APP=fort_gst
 
-MODULES_DIR=../../../gpufort/modules/rocm3.3
+CPPOBJS = dsygst_gpu_kernels.o dsytd2_gpu_kernels.o dsymv_gpu_kernels.o dsyevd_gpu_kernels.o dsygvdx_gpu_kernels.o dsytrd_gpu_kernels.o
+FOBJS = dsygvdx_gpu.F90.hipified.o dsytrd_gpu.F90.hipified.o dsyevd_gpu.F90.hipified.o  dsygst_gpu.F90.hipified.o utils.o 
+INTFOJBS = dsytrd_gpu.kernels.o dsyevd_gpu.kernels.o dsygvdx_gpu.kernels.o dsygst_gpu_kernels.o
 
-CXX=hipcc -g -DHIP_ENABLE_PRINTF
-FC=gfortran -g
-LDOPTS = -lstdc++ -L/opt/rocm/lib -lhip_hcc
+MODULES_DIR=/opt/rocm/hipfort/include/amdgcn
+CXX=hipcc -g -ggdb -O0
+FC=gfortran -g -cpp
+all: lib_eigsolve.a
 
-FSOURCES=$(wildcard *.f08)
-FOBJS  = $(patsubst %.f08,%.o,$(FSOURCES))
-CPPSOURCES=$(wildcard *.cpp)
-CPPOBJS = $(patsubst %.cpp,%.o,$(CPPSOURCES))
+eigsolve_vars.o: eigsolve_vars.F90.hipified.F90
+	$(FC) -I$(MODULES_DIR)  -c $^ -o $@
 
-.DEFAULT_GOAL := all
+dsygvdx_gpu.F90.hipified.o: dsygvdx_gpu.kernels.f08 dsygvdx_gpu.F90.hipified.F90 dsygst_gpu.F90.hipified.o dsyevd_gpu.F90.hipified.o utils.o
+	$(FC) -I$(MODULES_DIR)  -c dsygvdx_gpu.kernels.f08 dsygvdx_gpu.F90.hipified.F90
 
-%.o: %.cpp
-	$(CXX) -fno-gpu-rdc -fPIC -c $<
+dsygvdx_gpu_kernels.o: dsygvdx_gpu.kernels.hip.cpp
+	$(CXX) -fno-gpu-rdc -fPIC -c $< -o $@
 
-%.o: %.f08 %.F90.hipified
-	$(FC) -I$(MODULES_DIR) -c $<
+dsyevd_gpu.F90.hipified.o: dsyevd_gpu.kernels.f08 dsyevd_gpu.F90.hipified.F90 dsytrd_gpu.F90.hipified.o utils.o
+	$(FC) -I$(MODULES_DIR)  -c dsyevd_gpu.kernels.f08 dsyevd_gpu.F90.hipified.F90
 
-$(APP): $(FOBJS) $(CPPOBJS)
-	$(FC) $(FOBJS) $(CPPOBJS) $(LDOPTS) $(MODULES_DIR)/hip_check.o $(MODULES_DIR)/hip_types.o -o $@
+dsyevd_gpu_kernels.o: dsyevd_gpu.kernels.hip.cpp
+	$(CXX) -fno-gpu-rdc -fPIC -c $< -o $@
 
-all: $(APP)
+dsytrd_gpu_kernels.o: dsytrd_gpu.kernels.hip.cpp
+	$(CXX) -fno-gpu-rdc -fPIC -c $^ -o $@
+dsytrd_gpu.F90.hipified.o: dsytrd_gpu.kernels.f08 dsytrd_gpu.F90.hipified.F90 eigsolve_vars.o utils.o
+	$(FC) -I$(MODULES_DIR)  -c dsytrd_gpu.kernels.f08 dsytrd_gpu.F90.hipified.F90
 
-run: $(APP)
-	HIP_TRACE_API=1 ./$(APP)
+dsytd2_gpu_kernels.o: dsytd2_gpu.kernels.hip.cpp
+	$(CXX) -fno-gpu-rdc -fPIC -c $^ -o $@
+dsymv_gpu_kernels.o: dsymv_gpu.kernels.hip.cpp
+	$(CXX) -fno-gpu-rdc -fPIC -c $^ -o $@
+
+dsygst_gpu_kernels.o: dsygst_gpu.kernels.hip.cpp
+	$(CXX) -fno-gpu-rdc -fPIC -c $^ -o $@
+
+dsygst_gpu.F90.hipified.o: dsygst_gpu.kernels.f08 dsygst_gpu.F90.hipified.F90 eigsolve_vars.o
+	$(FC) -I$(MODULES_DIR)  -c dsygst_gpu.kernels.f08 dsygst_gpu.F90.hipified.F90
+
+utils.o: utils.F90
+	$(FC) -c utils.F90
+
+lib_eigsolve.a: eigsolve_vars.o $(FOBJS) $(CPPOBJS)
+	ar -cr lib_eigsolve.a  $(FOBJS) $(CPPOBJS) $(INTFOJBS) eigsolve_vars.o
 
 clean:
-	rm -f $(APP) *.o *.mod *~
+	rm -f *.o *.mod *.a
