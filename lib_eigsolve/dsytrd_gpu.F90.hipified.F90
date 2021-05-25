@@ -244,7 +244,8 @@ contains
             return
         endif
 
-        threads2D = dim3(32, 8, 1)
+        !threads2D = dim3(32, 8, 1)
+        threads2D = dim3(16,16,1)
         threads = dim3(256, 1, 1)
 
         if (N <= 0) return
@@ -267,8 +268,10 @@ contains
             ! TODO(gpufort) fix arguments
             CALL launch_krnl_37a79c_1_auto(0, c_null_ptr, c_loc(w), ldw, n, iw)
 
-            blocks2D = dim3(10, ceiling(real(N - 1)/32), 1) !JR TODO: What is optimal number of columns for our problem size?
-            CALL launch_dsymv_gpu_m(blocks2D, threads2D, (32+1)*32*8 + 32*8, c_null_ptr, N - 1, lda, A, A(1, N), W(1, iw))
+            !blocks2D = dim3(10, ceiling(real(N - 1)/32), 1) !JR TODO: What is optimal number of columns for our problem size?
+            !CALL launch_dsymv_gpu_m(blocks2D, threads2D, (32+1)*32*8 + 32*8, c_null_ptr, N - 1, lda, A, A(1, N), W(1, iw))
+            blocks2D = dim3(10, ceiling(real(N - 1)/16), 1) 
+            CALL launch_dsymv_gpu_m(blocks2D, threads2D, (16+1)*16*8 + 16*8 + 16*16*8, c_null_ptr, N - 1, lda, A, A(1, N), W(1, iw)) 
             call hipCheck(hipMemcpy(W_h, W, ldw*nb, hipMemcpyDeviceToHost))
             call print_vector(W_h(:,iw))
             stop

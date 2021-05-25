@@ -340,7 +340,7 @@ __global__ void dlarfg_kernel(int n, double *tau, double *e, double *x,
     if (tid == 1) {
       *xnorm = sqrt(*xnorm);
       rv1 = abs(alphar);
-      printf("xnorm = %g, alphar = %g\n",*xnorm,rv1);
+      //printf("xnorm = %g, alphar = %g\n",*xnorm,rv1);
       // ! not taking abs of xnorm
       scal = max(rv1, *xnorm);
       scal2 = min(rv1, *xnorm);
@@ -360,7 +360,7 @@ __global__ void dlarfg_kernel(int n, double *tau, double *e, double *x,
           beta = abs(scal * sqrt(1.0e0 + pow((scal2 / scal), 2)));
         }
       }
-      printf("beta = %g\n",beta);
+      //printf("beta = %g\n",beta);
       *tau = (beta - alphar) / beta;
       *e = beta; // ! store beta in e vector
       *alpha_s = 1.e0 / (alphar - beta); // !scaling factor for dscal
