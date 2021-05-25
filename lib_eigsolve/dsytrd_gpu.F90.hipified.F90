@@ -228,6 +228,7 @@ contains
         real(8), target, dimension(1:lda, 1:N)     :: A
         real(8), dimension(1:lda, 1:N)             :: A_h
         real(8), target, dimension(1:ldw, 1:nb)    :: W
+        real(8), dimension(1:ldw, 1:nb)            :: W_h
         real(8), target, dimension(N - 1)            :: tau
         real(8), target, dimension(N - 1)            :: e
         real(8), dimension(N - 1)                  :: tau_h
@@ -250,7 +251,7 @@ contains
 
         ! Complete first iteration outside loop
         if (N > 1) then
-            print*,"firt iter"
+            print*,"first iter"
             iw = nb
             ! Generate elementary reflector H(i) to annihilate A(1:i-2, i)
             call hipCheck(hipMemcpy(A_h, A, N*N,hipMemcpyDeviceToHost))
@@ -261,13 +262,16 @@ contains
             call hipCheck(hipMemcpy(e_h, e, N-1, hipMemcpyDeviceToHost))
             call hipCheck(hipMemcpy(tau_h, tau, N-1, hipMemcpyDeviceToHost))
             print*,e_h(N-1),tau_h(N-1)
-            stop
+            
             ! extracted to HIP C++ file
             ! TODO(gpufort) fix arguments
-            CALL launch_krnl_37a79c_1_auto(0, c_null_ptr, c_loc(w), ldw, nb, 1, 1, n, iw)
+            CALL launch_krnl_37a79c_1_auto(0, c_null_ptr, c_loc(w), ldw, n, iw)
 
             blocks2D = dim3(10, ceiling(real(N - 1)/32), 1) !JR TODO: What is optimal number of columns for our problem size?
             CALL launch_dsymv_gpu_m(blocks2D, threads2D, (32+1)*32*8 + 32*8, c_null_ptr, N - 1, lda, A, A(1, N), W(1, iw))
+            call hipCheck(hipMemcpy(W_h, W, ldw*nb, hipMemcpyDeviceToHost))
+            call print_vector(W_h(:,iw))
+            stop
 
             CALL launch_finish_W_col_kernel_m(dim3(1, 1, 1), threads, 8, c_null_ptr, N - 1, tau(N - 1), A(1, N), W(1, iw))
         endif

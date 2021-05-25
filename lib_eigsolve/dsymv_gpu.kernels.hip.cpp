@@ -197,6 +197,7 @@ int ar_s_n1, ar_s_lb1, ar_s_n2, ar_s_lb2, r_s_n1, r_s_lb1;
 #define NTILES 4
   // ! TODO could not parse:      real(8), dimension(bx + 1, bx), shared              :: ar_s
   // ! TODO could not parse:      real(8), dimension(bx), shared                    :: r_s
+  //printf("Hello from dsymv_gpu ************\n");
   extern __shared__ double s[];
   double *r_s = s;
   double *ar_s = s + (BX+1)*BX*8;
@@ -220,84 +221,89 @@ int ar_s_n1, ar_s_lb1, ar_s_n2, ar_s_lb2, r_s_n1, r_s_lb1;
   double ar;
   double xl;
   // ! ii,jj is index of top left corner of block
-  ii = ((blockIdx.y) * blockDim.x + 1);
+  ii = (blockIdx.y) * blockDim.x + 1;
   mysum = 0.0 /*_8*/;
   tx = threadIdx.x + 1;
   ty = threadIdx.y + 1;
-  if (((ii + (blockIdx.x) * blockDim.x) > n)) {
+  if (ii + blockIdx.x * blockDim.x > n) {
     return;
   }
-  i = (ii + tx - 1);
-  if ((i <= n)) {
+  //printf("Hello from dsymv_gpu ************\n");
+  i = ii + tx - 1;
+  if (i <= n) {
     xl = x[_idx_x(i)];
     // ! read part of x for lower triangular multiply
   }
   // ! Loop over columns (skip all lower triangular blocks)
-  for (int jj = (ii + (blockIdx.x - 1) * blockDim.x); jj <= n; jj += (gridDim.x * blockDim.x)) {
-    j = (jj + ty - 1);
+  for (int jj = ii + (blockIdx.x - 1) * blockDim.x; jj <= n; jj += gridDim.x * blockDim.x) {
+    
+    j = jj + ty - 1;
     // ! Load block into shared memory
     // ! CASE 1: Diagonal block
     if (ii == jj) {
+      printf("Hello from dsymv_gpu ************\n");
       // ! Load full block into shared memory
       for (int k = 0; k <= (NTILES - 1); k += 1) {
-        if ((i <= n && (j + k * blockDim.y) <= n)) {
+        if (i <= n && (j + k * blockDim.y) <= n) {
           ar_s[_idx_ar_s(tx, (ty + k * blockDim.y))] = a[_idx_a(i, (j + k * blockDim.y))];
         }
       }
       __syncthreads(); // ! Reflect to populate lower triangular part with true values of A
-          for (int k = 0; k <= (NTILES - 1); k += 1) {
-        if ((tx > (ty + k * blockDim.y))) {
+      for (int k = 0; k <= (NTILES - 1); k += 1) {
+        if (tx > (ty + k * blockDim.y)) {
           ar_s[_idx_ar_s(tx, (ty + k * blockDim.y))] = ar_s[_idx_ar_s((ty + k * blockDim.y), tx)];
         }
       }
       __syncthreads();
-       for (int k = 0; k <= (NTILES - 1); k += 1) {
-        if ((i <= n && (j + k * blockDim.y) <= n)) {
-          mysum = (mysum + ar_s[_idx_ar_s(tx, (ty + k * blockDim.y))] * x[_idx_x((j + k * blockDim.y))]);
+      for (int k = 0; k <= (NTILES - 1); k += 1) {
+        if (i <= n && (j + k * blockDim.y) <= n) {
+          mysum = mysum + ar_s[_idx_ar_s(tx, (ty + k * blockDim.y))] * x[_idx_x((j + k * blockDim.y))];
         }
-
+      printf("%g ",mysum);
       } // !call __syncthreads()
       // ! CASE 2: Upper triangular block
 
-    } else if ((ii < jj)) {
-      for (int k = 0; k <= (NTILES - 1); k += 1) {
-        if (((j + k * blockDim.y) <= n)) {
-          ar = a[_idx_a(i, (j + k * blockDim.y))];
-        }
-        if ((i <= n && (j + k * blockDim.y) <= n)) {
-          mysum = (mysum + ar * x[_idx_x((j + k * blockDim.y))]);
-        }
-        // ! Perform product for symmetric lower block here
-        if ((i <= n && (j + k * blockDim.y) <= n)) {
-          rv1 = (ar * xl);
+    // } else if (ii < jj) {
+    //   for (int k = 0; k <= (NTILES - 1); k += 1) {
+    //     if ((j + k * blockDim.y) <= n) {
+    //       ar = a[_idx_a(i, (j + k * blockDim.y))];
+    //     }
+    //     if (i <= n && (j + k * blockDim.y) <= n) {
+    //       mysum = mysum + ar * x[_idx_x((j + k * blockDim.y))];
+    //     }
+    //     // ! Perform product for symmetric lower block here
+    //     if (i <= n && (j + k * blockDim.y) <= n) {
+    //       rv1 = ar * xl;
 
-        } else {
-          rv1 = 0.0 /*_8*/;
-        }
-        // !Partial sum within warps using shuffle
-        rv2 = __shfl_down(rv1, 1);
-        rv1 = (rv1 + rv2);
-        rv2 = __shfl_down(rv1, 2);
-        rv1 = (rv1 + rv2);
-        rv2 = __shfl_down(rv1, 4);
-        rv1 = (rv1 + rv2);
-        rv2 = __shfl_down(rv1, 8);
-        rv1 = (rv1 + rv2);
-        rv2 = __shfl_down(rv1, 16);
-        rv1 = (rv1 + rv2);
-        if (tx == 1) {
-          r_s[_idx_r_s((ty + k * blockDim.y))] = rv1;
-        }
-      }
-      __syncthreads(); 
-      if ((ty == 1 && (jj + tx - 1) <= n)) { 
-          istat = atomicAdd(y + _idx_y((jj + tx - 1)*8), r_s[_idx_r_s(tx)]); 
-      }
+    //     } else {
+    //       rv1 = 0.0 /*_8*/;
+    //     }
+    //     // !Partial sum within warps using shuffle
+    //     rv2 = __shfl_down(rv1, 1);
+    //     rv1 = (rv1 + rv2);
+    //     rv2 = __shfl_down(rv1, 2);
+    //     rv1 = (rv1 + rv2);
+    //     rv2 = __shfl_down(rv1, 4);
+    //     rv1 = (rv1 + rv2);
+    //     rv2 = __shfl_down(rv1, 8);
+    //     rv1 = (rv1 + rv2);
+    //     rv2 = __shfl_down(rv1, 16);
+    //     rv1 = (rv1 + rv2);
+    //     rv2 = __shfl_down(rv1, 32);
+    //     rv1 = (rv1 + rv2);
+    //     if (tx == 1) {
+    //       r_s[_idx_r_s((ty + k * blockDim.y))] = rv1;
+    //     }
+    //   }
+    //   __syncthreads(); 
+    //   if ((ty == 1 && (jj + tx - 1) <= n)) { 
+    //       istat = atomicAdd(y + _idx_y((jj + tx - 1)*8), r_s[_idx_r_s(tx)]); 
+    //   }
       // !call __syncthreads()
     }
     __syncthreads();
   }
-  if ((i <= n)) {
+  if (i <= n) {
     istat = atomicAdd(y + _idx_y(i)*8, mysum);
   }
 }

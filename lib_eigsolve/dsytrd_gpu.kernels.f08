@@ -95,9 +95,6 @@ module dsytrd_gpu_kernels
                                              stream, &
                                              w, &
                                              w_n1, &
-                                             w_n2, &
-                                             w_lb1, &
-                                             w_lb2, &
                                              n, &
                                              iw) bind(c, name="launch_krnl_37a79c_1_auto")
             use iso_c_binding
@@ -107,9 +104,6 @@ module dsytrd_gpu_kernels
             type(c_ptr), value, intent(IN) :: stream
             type(c_ptr), value :: w
             integer(c_int), value, intent(IN) :: w_n1
-            integer(c_int), value, intent(IN) :: w_n2
-            integer(c_int), value, intent(IN) :: w_lb1
-            integer(c_int), value, intent(IN) :: w_lb2
             INTEGER, value :: n
             INTEGER, value :: iw
         end subroutine

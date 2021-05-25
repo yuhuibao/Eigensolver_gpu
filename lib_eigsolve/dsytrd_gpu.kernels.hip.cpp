@@ -125,29 +125,28 @@ extern "C" void launch_krnl_2b8e8f_0_auto(const int sharedMem,
 // - Shared Memory: 0
 // - Stream: 0
 
-__global__ void krnl_37a79c_1(double *w, const int w_n1, const int w_n2,
-                              const int w_lb1, const int w_lb2, int n, int iw) {
+__global__ void krnl_37a79c_1(double *w, const int w_n1,
+                               int n, int iw) {
 #undef _idx_w
-#define _idx_w(a, b) ((a - (w_lb1)) + w_n1 * (b - (w_lb2)))
+#define _idx_w(a, b) a - 1 + w_n1 * (b - 1)
 
   unsigned int k = 1 + threadIdx.x + blockIdx.x * blockDim.x;
-  if ((k <= (n - 1))) {
+  if (k <= (n - 1)) {
     w[_idx_w(k, iw)] = 0.e0;
   }
 }
 
 extern "C" void launch_krnl_37a79c_1(dim3 *grid, dim3 *block,
                                      const int sharedMem, hipStream_t stream,
-                                     double *w, const int w_n1, const int w_n2,
-                                     const int w_lb1, const int w_lb2, int n,
+                                     double *w, const int w_n1, 
+                                      int n,
                                      int iw) {
   hipLaunchKernelGGL((krnl_37a79c_1), *grid, *block, sharedMem, stream, w, w_n1,
-                     w_n2, w_lb1, w_lb2, n, iw);
+                     n, iw);
 }
 extern "C" void launch_krnl_37a79c_1_auto(const int sharedMem,
                                           hipStream_t stream, double *w,
-                                          const int w_n1, const int w_n2,
-                                          const int w_lb1, const int w_lb2,
+                                          const int w_n1,
                                           int n, int iw) {
   const unsigned int krnl_37a79c_1_NX = n;
 
@@ -158,8 +157,7 @@ extern "C" void launch_krnl_37a79c_1_auto(const int sharedMem,
 
   dim3 grid(krnl_37a79c_1_gridX);
   dim3 block(krnl_37a79c_1_blockX);
-  hipLaunchKernelGGL((krnl_37a79c_1), grid, block, sharedMem, stream, w, w_n1,
-                     w_n2, w_lb1, w_lb2, n, iw);
+  hipLaunchKernelGGL((krnl_37a79c_1), grid, block, sharedMem, stream, w, w_n1, n, iw);
 }
 // END krnl_37a79c_1
 
