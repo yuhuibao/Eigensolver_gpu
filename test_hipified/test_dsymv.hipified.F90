@@ -2,95 +2,40 @@ program main
     use hipfort
     use hipfort_check
     use utils
+    !use dsytrd_gpu
     implicit none
 
-    integer                                         :: N, lwork, liwork_h,info,il,iu
+    integer                                         :: N,lda
     real(8), dimension(:,:), pointer                :: A
     real(8), dimension(:,:), allocatable            :: A_h
     real(8), dimension(:), pointer                  :: x,y
     real(8), dimension(:), allocatable              :: x_h, y_h
+    character(len=40)                               :: f1,f2
+    type(dim3)                                      :: threads2D, blocks2D
+
+    f1 = "mat1_32.dat"
+    f2 = "vec_32.dat"
     
-
-    N = 3
-    lwork = 6*N
-    liwork_h = 10*N
-    iu = n
-    il = 1
-
-    allocate(A_h, source=Aref)
-    allocate(Z_h(N,N))
-    A_h(1, 1) = 1
-    A_h(1, 2) = 2
-    A_h(1, 3) = 3
-    A_h(2, 1) = 2
-    A_h(2, 2) = 4
-    A_h(2, 3) = 1
-    A_h(3, 1) = 3
-    A_h(3, 2) = 1
-    A_h(3, 3) = 1
-
-    ! A_h(1, 1) = 1
-    ! A_h(1, 2) = 2
-    ! A_h(1, 3) = 3
-    ! A_h(1, 4) = 4
-    ! A_h(2, 1) = 2
-    ! A_h(2, 2) = 4
-    ! A_h(2, 3) = 1
-    ! A_h(2, 4) = 1
-    ! A_h(3, 1) = 3
-    ! A_h(3, 2) = 1
-    ! A_h(3, 3) = 1
-    ! A_h(3, 4) = 2
-    ! A_h(4, 1) = 4
-    ! A_h(4, 2) = 1
-    ! A_h(4, 3) = 2
-    ! A_h(4, 4) = 2
-
-    ! A_h(1, 1) = 1
-    ! A_h(1, 2) = 2
-    ! A_h(1, 3) = 3
-    ! A_h(1, 4) = 4
-    ! A_h(1, 5) = 5
-    ! A_h(2, 1) = 2
-    ! A_h(2, 2) = 4
-    ! A_h(2, 3) = 1
-    ! A_h(2, 4) = 1
-    ! A_h(2, 5) = 5
-    ! A_h(3, 1) = 3
-    ! A_h(3, 2) = 1
-    ! A_h(3, 3) = 1
-    ! A_h(3, 4) = 2
-    ! A_h(3, 5) = 3
-    ! A_h(4, 1) = 4
-    ! A_h(4, 2) = 1
-    ! A_h(4, 3) = 2
-    ! A_h(4, 4) = 2
-    ! A_h(4, 5) = 3
-    ! A_h(5, 1) = 5
-    ! A_h(5, 2) = 5
-    ! A_h(5, 3) = 3
-    ! A_h(5, 4) = 3
-    ! A_h(5, 1) = 1
-
-    Z_h = A_h
-    !allocate(A, source=A_h)
+    call read_matrix_from_file(f1,A_h)
+    call read_vector_from_file(f2,x_h)
+    N= size(x_h)
+    lda=N
+    allocate(y_h(N))
+    
     call hipCheck(hipMalloc(A,N,N))
     call hipCheck(hipMemcpy(A, A_h, N*N, hipMemcpyHostToDevice))
 
-    call hipCheck(hipMalloc(Z,N,N))
-    call hipCheck(hipMemcpy(Z, Z_h, N*N, hipMemcpyHostToDevice)) 
-    allocate(work_h(lwork))
-    !allocate(work, source=work_h)
-    call hipCheck(hipMalloc(work,lwork))
-    call hipCheck(hipMemset(c_loc(work), 0, lwork*8_8))
-    allocate(w_h(N))
-    !allocate(d, source=d_h)
-    call hipCheck(hipMalloc(w,N))
-    call hipCheck(hipMemset(c_loc(w), 0, N*8_8))
-    allocate(iwork_h(liwork_h))
+    call hipCheck(hipMalloc(x,N))
+    call hipCheck(hipMemcpy(x, x_h, N, hipMemcpyHostToDevice))
     
+    call hipCheck(hipMalloc(y,N))
+    call hipCheck(hipMemset(c_loc(y), 0, N*8_8))
+    
+    threads2D = dim3(16,16,1)
+    blocks2D = dim3(10, ceiling(real(N - 1)/16),1)
+    call launch_dsymv_gpu_m(blocks2D, threads2D, (16+1)*16*8 + 16*8 + 16*16*8, c_null_ptr, N - 1, lda, A, x, y)
 
-    call dsyevd_gpu_h('V', 'U', il, iu, N, A, A_h, N, Z, N, w, work, lwork, &
-                          work_h, lwork, iwork_h, liwork_h, Z_h, N, w_h, info)
+    call hipCheck(hipMemcpy(y_h, y, N, hipMemcpyDeviceToHost))
+    call print_vector(y_h)
 
 end program

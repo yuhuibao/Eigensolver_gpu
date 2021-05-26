@@ -2,7 +2,7 @@
 
 cd lib_eigsolve
 # make clean
-make -f mk
+make
 cd ../test_hipified
 make clean
 make
